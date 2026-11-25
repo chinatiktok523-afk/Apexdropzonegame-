@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Publicly isolated player profile summary keyed by Firebase Auth UID (no PII).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication user UID",
+          "maxLength": 128
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Operator display name",
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["uid", "displayName", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Owner-only PII record storing account email isolated from profile reads.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Authentication user UID",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified account email address",
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": ["uid", "email", "createdAt", "updatedAt"]
+    },
+    "SimulatorSave": {
+      "title": "SimulatorSave",
+      "description": "Cloud-synced World Simulator progression, credits, environment, position, and loadout state.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "lastPoiId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "lastX": { "type": "number" },
+        "lastZ": { "type": "number" },
+        "lastYaw": { "type": "number" },
+        "lastDistrict": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "timePhase": {
+          "type": "string",
+          "enum": ["morning", "afternoon", "sunset", "night"]
+        },
+        "weather": {
+          "type": "string",
+          "enum": ["clear", "cloudy", "foggy", "rainy"]
+        },
+        "autoCycle": { "type": "boolean" },
+        "bikeStyle": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "visitedDistricts": {
+          "type": "array",
+          "description": "Visited mega-world district names (max 40)"
+        },
+        "totalExploreSeconds": { "type": "number" },
+        "stuntsCompleted": { "type": "number" },
+        "racesCompleted": { "type": "number" },
+        "bestLapSec": { "type": "number" },
+        "credits": { "type": "number" },
+        "purchasedItems": {
+          "type": "object",
+          "description": "Inventory item quantities keyed by item ID"
+        },
+        "totalSpentCredits": { "type": "number" },
+        "hasSavedPosition": { "type": "boolean" },
+        "startingWeapon": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "operatorSkin": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "weaponSkin": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "reticleColor": {
+          "type": "string",
+          "maxLength": 32
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "lastPoiId",
+        "lastX",
+        "lastZ",
+        "lastYaw",
+        "lastDistrict",
+        "timePhase",
+        "weather",
+        "autoCycle",
+        "bikeStyle",
+        "visitedDistricts",
+        "totalExploreSeconds",
+        "stuntsCompleted",
+        "racesCompleted",
+        "bestLapSec",
+        "credits",
+        "purchasedItems",
+        "totalSpentCredits",
+        "hasSavedPosition",
+        "startingWeapon",
+        "operatorSkin",
+        "weaponSkin",
+        "reticleColor",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-only operator profile summary document (parent gate for subcollections)."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Owner-only PII record containing account email."
+    },
+    "/users/{userId}/saves/{saveId}": {
+      "schema": { "$ref": "#/entities/SimulatorSave" },
+      "description": "Owner-only cloud save document (e.g. world_simulator) syncing credits, location, stats, and loadout."
+    }
+  }
+}

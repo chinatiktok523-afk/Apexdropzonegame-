@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#141e30" />
+      <stop offset="65%" stop-color="#0b101b" />
+      <stop offset="100%" stop-color="#05070c" />
+    </radialGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)" />
+  <rect x="24" y="24" width="464" height="464" rx="76" stroke="#1e293b" stroke-width="4" />
+  <polygon
+    points="256,64 422,160 422,352 256,448 90,352 90,160"
+    fill="#0f172a"
+    fill-opacity="0.72"
+    stroke="url(#amberGrad)"
+    stroke-width="14"
+    stroke-linejoin="round"
+  />
+  <circle cx="256" cy="256" r="108" stroke="url(#skyGrad)" stroke-width="10" stroke-dasharray="48 22" />
+  <circle cx="256" cy="256" r="56" stroke="#f8fafc" stroke-width="6" stroke-opacity="0.9" />
+  <path d="M256 108 L256 178 M256 334 L256 404 M108 256 L178 256 M334 256 L404 256" stroke="#fbbf24" stroke-width="12" stroke-linecap="round" />
+  <polygon points="256,214 292,292 256,274 220,292" fill="url(#amberGrad)" />
+  <circle cx="256" cy="256" r="8" fill="#38bdf8" />
+</svg>

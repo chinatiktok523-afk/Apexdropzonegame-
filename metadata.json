@@ -1,0 +1,8 @@
+{
+  "name": "Apex Dropzone",
+  "description": "Android-first 3D Tactical Simulator featuring Paradise Valley Open World, Drivable Vehicles, Destructible Environments, and Rank & Achievement Badges.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

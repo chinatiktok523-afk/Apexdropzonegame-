@@ -1,0 +1,283 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerified() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 80
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 160
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSimulatorSave(data, userId) {
+      return data.keys().hasAll([
+          'uid',
+          'lastPoiId',
+          'lastX',
+          'lastZ',
+          'lastYaw',
+          'lastDistrict',
+          'timePhase',
+          'weather',
+          'autoCycle',
+          'bikeStyle',
+          'visitedDistricts',
+          'totalExploreSeconds',
+          'stuntsCompleted',
+          'racesCompleted',
+          'bestLapSec',
+          'credits',
+          'purchasedItems',
+          'totalSpentCredits',
+          'hasSavedPosition',
+          'startingWeapon',
+          'operatorSkin',
+          'weaponSkin',
+          'reticleColor',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid',
+          'lastPoiId',
+          'lastX',
+          'lastZ',
+          'lastYaw',
+          'lastDistrict',
+          'timePhase',
+          'weather',
+          'autoCycle',
+          'bikeStyle',
+          'visitedDistricts',
+          'totalExploreSeconds',
+          'stuntsCompleted',
+          'racesCompleted',
+          'bestLapSec',
+          'credits',
+          'purchasedItems',
+          'totalSpentCredits',
+          'hasSavedPosition',
+          'startingWeapon',
+          'operatorSkin',
+          'weaponSkin',
+          'reticleColor',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid == request.auth.uid
+        && data.uid == userId
+        && data.lastPoiId is string
+        && data.lastPoiId.size() >= 1
+        && data.lastPoiId.size() <= 64
+        && data.lastPoiId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.lastX is number
+        && data.lastX >= -10000
+        && data.lastX <= 10000
+        && data.lastZ is number
+        && data.lastZ >= -10000
+        && data.lastZ <= 10000
+        && data.lastYaw is number
+        && data.lastYaw >= -100
+        && data.lastYaw <= 100
+        && data.lastDistrict is string
+        && data.lastDistrict.size() >= 1
+        && data.lastDistrict.size() <= 80
+        && data.timePhase in ['morning', 'afternoon', 'sunset', 'night']
+        && data.weather in ['clear', 'cloudy', 'foggy', 'rainy']
+        && data.autoCycle is bool
+        && data.bikeStyle is string
+        && data.bikeStyle.size() >= 1
+        && data.bikeStyle.size() <= 32
+        && data.bikeStyle.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.visitedDistricts is list
+        && data.visitedDistricts.size() <= 40
+        && (data.visitedDistricts.size() == 0 || (data.visitedDistricts[0] is string && data.visitedDistricts[0].size() <= 80))
+        && data.totalExploreSeconds is number
+        && data.totalExploreSeconds >= 0
+        && data.totalExploreSeconds <= 100000000
+        && data.stuntsCompleted is number
+        && data.stuntsCompleted >= 0
+        && data.stuntsCompleted <= 1000000
+        && data.racesCompleted is number
+        && data.racesCompleted >= 0
+        && data.racesCompleted <= 1000000
+        && (data.bestLapSec == null || (data.bestLapSec is number && data.bestLapSec > 0 && data.bestLapSec <= 86400))
+        && data.credits is number
+        && data.credits >= 0
+        && data.credits <= 100000000
+        && data.purchasedItems is map
+        && data.purchasedItems.size() <= 32
+        && data.totalSpentCredits is number
+        && data.totalSpentCredits >= 0
+        && data.totalSpentCredits <= 100000000
+        && data.hasSavedPosition is bool
+        && data.startingWeapon is string
+        && data.startingWeapon.size() >= 1
+        && data.startingWeapon.size() <= 32
+        && data.operatorSkin is string
+        && data.operatorSkin.size() >= 1
+        && data.operatorSkin.size() <= 32
+        && data.weaponSkin is string
+        && data.weaponSkin.size() >= 1
+        && data.weaponSkin.size() <= 32
+        && data.reticleColor is string
+        && data.reticleColor.size() >= 1
+        && data.reticleColor.size() <= 32
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'updatedAt']);
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow get: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow list: if false;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && isValidUserPrivate(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(docId)
+          && isValidUserPrivate(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'updatedAt'])
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow delete: if false;
+      }
+
+      match /saves/{saveId} {
+        allow get: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(saveId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow list: if false;
+        allow create: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(saveId)
+          && isValidSimulatorSave(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow update: if isOwner(userId)
+          && isValidId(userId)
+          && isValidId(saveId)
+          && isValidSimulatorSave(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'lastPoiId',
+            'lastX',
+            'lastZ',
+            'lastYaw',
+            'lastDistrict',
+            'timePhase',
+            'weather',
+            'autoCycle',
+            'bikeStyle',
+            'visitedDistricts',
+            'totalExploreSeconds',
+            'stuntsCompleted',
+            'racesCompleted',
+            'bestLapSec',
+            'credits',
+            'purchasedItems',
+            'totalSpentCredits',
+            'hasSavedPosition',
+            'startingWeapon',
+            'operatorSkin',
+            'weaponSkin',
+            'reticleColor',
+            'updatedAt'
+          ])
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        allow delete: if false;
+      }
+    }
+  }
+}
