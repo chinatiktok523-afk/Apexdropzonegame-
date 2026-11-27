@@ -11,7 +11,13 @@ export type LobbyTabId = 'home' | 'world' | 'graphics' | 'settings' | 'profile';
 export const LOBBY_TAB_ORDER: LobbyTabId[] = ['home', 'world', 'graphics', 'settings', 'profile'];
 
 export const MUSIC_VOLUME_STORAGE_KEY = 'apex_dropzone_music_vol_v1';
-export const MAIN_SCREEN_VIDEO_URL = './assets/aistudio/main_screen_video_4292961f.mp4';
+export const MAIN_SCREEN_VIDEO_URL =
+  './assets/aistudio/Grand_Theft_Auto_VI__An_Extended_Look___Now_Playing_720P_HD__3f882ce6.mp4';
+export const MAIN_SCREEN_VIDEO_PLAYLIST: string[] = [
+  MAIN_SCREEN_VIDEO_URL,
+  './assets/aistudio/GTA_VI_vs_Watch_Dogs_2___Pistol_Shooting_Physics_Comparison__1080P_HD__54ca8cce.mp4',
+  './assets/aistudio/game_video_2_deb9f1ca.mp4',
+];
 export const TOTAL_WORLD_ZONES = 21;
 
 export interface ResolvedGraphicsProfile {
@@ -24,6 +30,7 @@ export interface ResolvedGraphicsProfile {
   drawDistance: number;
   bloomEnabled: boolean;
   mapSaturation: number;
+  hardwareAcceleration: boolean;
 }
 
 export const SATURATION_PRESETS = [
@@ -36,7 +43,7 @@ export const QUALITY_PRESET_CARDS: {
   id: GraphicsQuality;
   title: string;
   subtitle: string;
-  defaults: Omit<ResolvedGraphicsProfile, 'preset' | 'mapSaturation'>;
+  defaults: Omit<ResolvedGraphicsProfile, 'preset' | 'mapSaturation' | 'hardwareAcceleration'>;
 }[] = [
   {
     id: 'low',
@@ -131,6 +138,7 @@ export function buildPresetGraphicsPatch(quality: GraphicsQuality): Partial<HudS
     mapQuality: card.defaults.mapQuality,
     drawDistance: card.defaults.drawDistance,
     bloomEnabled: card.defaults.bloomEnabled,
+    hardwareAcceleration: true,
   };
 }
 
@@ -142,6 +150,8 @@ export function resolveGraphicsProfile(
   const presetDefaults =
     QUALITY_PRESET_CARDS.find((c) => c.id === preset)?.defaults ??
     QUALITY_PRESET_CARDS[2].defaults;
+  const hwAccelRequested =
+    typeof settings.hardwareAcceleration === 'boolean' ? settings.hardwareAcceleration : true;
 
   if (isSoftwareGl) {
     return {
@@ -154,6 +164,7 @@ export function resolveGraphicsProfile(
       drawDistance: clampDrawDistance(settings.drawDistance ?? 0.8),
       bloomEnabled: false,
       mapSaturation: clampSaturation(settings.mapSaturation),
+      hardwareAcceleration: false,
     };
   }
 
@@ -170,6 +181,7 @@ export function resolveGraphicsProfile(
         ? settings.bloomEnabled
         : presetDefaults.bloomEnabled,
     mapSaturation: clampSaturation(settings.mapSaturation),
+    hardwareAcceleration: hwAccelRequested,
   };
 }
 

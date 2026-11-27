@@ -8,6 +8,7 @@ import {
   type VehicleCrashState,
 } from './vehicleCrashPhysics';
 import type { VehicleDoorStyle, VehicleGlassPane, VehicleSpec } from './vehicles';
+import { MAIN_SCREEN_VIDEO_PLAYLIST } from './lobbyConfig';
 
 export interface BuiltMansionVehicle {
   group: THREE.Group;
@@ -278,9 +279,7 @@ function attachMansionCockpitWithStartButton(
     clusterFrame.add(clusterPanel);
 
     const { material: ytMat, entry: ytEntry } = displays.createVideoDisplayMaterial(
-      [
-        './assets/aistudio/main_screen_video_4292961f.mp4',
-      ],
+      MAIN_SCREEN_VIDEO_PLAYLIST,
       'car_second_lcd',
       {
         title: 'MAIN SCREEN VIDEO',

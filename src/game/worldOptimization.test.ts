@@ -250,9 +250,9 @@ test('DigitalDisplayManager handles disabled toggle and unmute autoplay fallback
 
   try {
     const mgr = new DigitalDisplayManager();
-    const url = './assets/aistudio/main_screen_video_4292961f.mp4';
-    const d1 = mgr.createVideoDisplayMaterial([url], 'shopping_mall', { worldPos: { x: 0, y: 2, z: 0 } });
-    const d2 = mgr.createVideoDisplayMaterial([url], 'car_second_lcd', { worldPos: { x: 40, y: 2, z: 0 } });
+    const { MAIN_SCREEN_VIDEO_URL } = await import('./lobbyConfig');
+    const d1 = mgr.createVideoDisplayMaterial([MAIN_SCREEN_VIDEO_URL], 'shopping_mall', { worldPos: { x: 0, y: 2, z: 0 } });
+    const d2 = mgr.createVideoDisplayMaterial([MAIN_SCREEN_VIDEO_URL], 'car_second_lcd', { worldPos: { x: 40, y: 2, z: 0 } });
 
     d1.entry.disabled = true;
     mgr.update(1.0, 0.05, new THREE.Vector3(0, 2, 2));
@@ -408,7 +408,7 @@ test('Quality tiers use MeshLambertMaterial on Low/Medium and preserve MeshStand
 
   try {
     const mgr = new DigitalDisplayManager();
-    const dFar = mgr.createVideoDisplayMaterial(['./assets/aistudio/main_screen_video_4292961f.mp4'], 'shopping_mall', {
+    const dFar = mgr.createVideoDisplayMaterial(['./assets/aistudio/Grand_Theft_Auto_VI__An_Extended_Look___Now_Playing_720P_HD__3f882ce6.mp4'], 'shopping_mall', {
       worldPos: { x: 180, y: 2, z: 0 },
     });
     const cam = { x: 0, y: 2, z: 0 };

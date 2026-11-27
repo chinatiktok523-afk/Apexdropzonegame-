@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { getGroundHeightFn } from './arena';
 import { formatDisplayClock, getTrainBoardEntries } from './digitalDisplays';
 import { HOSPITAL_ELEVATOR_INFO } from './newCityDistrict';
+import { MAIN_SCREEN_VIDEO_URL } from './lobbyConfig';
 import { buildDigitalBikeMesh, VehicleManager, VEHICLE_SPECS } from './vehicles';
 import { NPC_ROLE_CATALOG } from './simulatorSystems';
 import { createOrganicBoulderGeometry, fbm2D, ridged2D } from './realisticWorld';
@@ -225,8 +226,8 @@ test('VehicleManager emits R/N/1..5 gears, frontWheelSteerPivots, and raised dri
     assert.ok(mansionCar.secondLcdMesh, 'Mansion luxury car MUST have 2nd LCD display');
     assert.ok(mansionCar.secondLcdEntry, 'Mansion luxury car MUST have 2nd LCD entry');
     assert.ok(
-      mansionCar.secondLcdEntry.playlist?.[0]?.includes('main_screen_video_4292961f'),
-      'Mansion luxury car 2nd LCD must play MAIN SCREEN VIDEO (main_screen_video_4292961f.mp4)',
+      mansionCar.secondLcdEntry.playlist?.[0] === MAIN_SCREEN_VIDEO_URL,
+      'Mansion luxury car 2nd LCD must play valid MAIN_SCREEN_VIDEO_URL',
     );
     assert.ok(
       mansionCar.secondLcdMesh.position.z > -0.49,
@@ -238,7 +239,7 @@ test('VehicleManager emits R/N/1..5 gears, frontWheelSteerPivots, and raised dri
     );
 
     for (const [kind, spec] of Object.entries(VEHICLE_SPECS)) {
-      if (kind === 'digital_bike' || kind === 'electric_scooter') continue;
+      if (kind === 'digital_bike' || kind === 'electric_scooter' || kind === 'future_bike') continue;
       assert.ok(
         spec.driverSeatOffset[1] >= 1.2,
         `Car ${kind} driverSeatOffset[1] (${spec.driverSeatOffset[1]}) must be >= 1.2 for clear interior windshield view`,

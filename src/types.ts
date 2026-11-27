@@ -204,6 +204,7 @@ export interface HudSettings {
   textureQuality?: QualityTierOption;
   mapQuality?: QualityTierOption;
   drawDistance?: number; // 0.6 to 1.4
+  hardwareAcceleration?: boolean;
   language?: LobbyLanguage;
   controlLayout: HudControlLayout;
 }
@@ -227,6 +228,7 @@ export const DEFAULT_HUD_SETTINGS: HudSettings = {
   textureQuality: 'high',
   mapQuality: 'high',
   drawDistance: 1.0,
+  hardwareAcceleration: true,
   language: 'en',
   controlLayout: {
     move: { ...DEFAULT_HUD_CONTROL_LAYOUT.move },
@@ -775,7 +777,16 @@ export type VehicleKind =
   | 'mansion_escalade_dragon'
   | 'mansion_range_marble'
   | 'mansion_ev_gt'
-  | 'apex_heli';
+  | 'apex_heli'
+  | 'future_sports_car'
+  | 'future_super_car'
+  | 'future_suv'
+  | 'future_bike'
+  | 'future_heli'
+  | 'future_flying_car'
+  | 'future_drone'
+  | 'future_tank'
+  | 'koutone_hover';
 
 export interface NearbyHijackVehicleInfo {
   agentId: number;

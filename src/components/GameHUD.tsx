@@ -2228,7 +2228,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           {/* Right Throttle / Reverse / Beep SOS / Helicopter / Mounted HMG Pads */}
           <div className="absolute bottom-14 right-3 z-20 flex items-end gap-2.5 pointer-events-auto touch-none">
             <div className="flex flex-col items-end gap-2">
-              {hud.vehicle.vehicleKind === 'apex_heli' && (
+              {(hud.vehicle.vehicleKind === 'apex_heli' ||
+                hud.vehicle.vehicleKind === 'future_heli' ||
+                hud.vehicle.vehicleKind === 'future_drone' ||
+                hud.vehicle.vehicleKind === 'future_flying_car') && (
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"

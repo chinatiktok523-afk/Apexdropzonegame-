@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { MAIN_SCREEN_VIDEO_URL } from './lobbyConfig';
 import {
   MANSION_DEFAULT_SPAWN,
   MANSION_HELIPAD_COORDS,
@@ -398,16 +399,15 @@ test('DigitalDisplayManager pools shared video streams while preserving independ
 
   try {
     const mgr = new DigitalDisplayManager();
-    const mainVideoUrl = './assets/aistudio/main_screen_video_4292961f.mp4';
-    const d1 = mgr.createVideoDisplayMaterial([mainVideoUrl], 'car_second_lcd');
-    const d2 = mgr.createVideoDisplayMaterial([mainVideoUrl], 'car_second_lcd');
+    const d1 = mgr.createVideoDisplayMaterial([MAIN_SCREEN_VIDEO_URL], 'car_second_lcd');
+    const d2 = mgr.createVideoDisplayMaterial([MAIN_SCREEN_VIDEO_URL], 'car_second_lcd');
     assert.equal(createdVideos.length, 1, 'Identical playlists should share a single pooled <video> element');
     assert.equal(createdVideos[0].crossOrigin, undefined, 'Relative same-origin videos should not set crossOrigin');
     assert.equal(d1.entry.video, d2.entry.video);
 
     const hitRes = mgr.hitDisplayEntry(d1.entry, 0.5, 0.5, 100, 1.0);
     mgr.hitDisplayEntry(d1.entry, 0.5, 0.5, 100, 1.1);
-    assert.equal(hitRes, 'cracked');
+    assert.equal(hitRes, 'shattered');
     assert.ok(d1.entry.damageHits >= 3);
     assert.equal(d2.entry.damageHits, 0, 'Destroying one screen must not damage sibling screens');
     mgr.dispose();
@@ -422,12 +422,11 @@ test('DigitalDisplayManager pools shared video streams while preserving independ
 
 test('all referenced mansion media playlists and DJ audio assets exist on disk', () => {
   const requiredMedia = [
-    'public/assets/aistudio/main_screen_video_4292961f.mp4',
+    'public/assets/aistudio/Grand_Theft_Auto_VI__An_Extended_Look___Now_Playing_720P_HD__3f882ce6.mp4',
     'public/assets/aistudio/game_video_2_deb9f1ca.mp4',
     'public/assets/aistudio/movie_video_1_627e1400.mp4',
     'public/assets/aistudio/Black_Ops_6_Kilo_141_vs_MW4_Axion_Weapons_inspection__No_Ammo___mw4__bo6__callofduty_720P_HD__5ca51370.mp4',
     'public/assets/aistudio/GTA_VI_vs_Watch_Dogs_2___Pistol_Shooting_Physics_Comparison__1080P_HD__54ca8cce.mp4',
-    'public/assets/aistudio/Grand_Theft_Auto_VI__An_Extended_Look___Now_Playing_720P_HD__3f882ce6.mp4',
     'public/assets/aistudio/gaming_screen_loop.mp4',
     'public/assets/aistudio/neon_city_wall_loop.mp4',
     'public/assets/aistudio/party_dj_music_1.mp3',

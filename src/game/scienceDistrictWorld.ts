@@ -8,7 +8,10 @@ import {
   SCIENCE_DOMES_CATALOG,
   SCIENCE_MUSEUM_BOUNDS,
   SCIENCE_PLAZA_CENTER,
+  SCIENCE_WALL_BOUNDS,
+  SCIENCE_WALL_DOORS,
   createInitialScienceDistrictState,
+  stepScienceWallDoors,
   updateOnDemandInteriorLoading,
   type ScienceDistrictSimulationState,
   type ScienceDomeId,
@@ -16,8 +19,10 @@ import {
 } from './scienceDistrictSystems';
 import {
   buildFutureLabAtriumHero,
+  createCyberInteriorWallMaterials,
   createEarthGlobeTexture,
   createExhibitMaterialBank,
+  createHexRedPerimeterWallMaterial,
   createSignBannerTexture,
   populateDomeExhibits,
   type ScienceExhibitAnimEntry,
@@ -37,6 +42,7 @@ export interface ScienceDistrictController {
     elapsed: number,
     playerPos: THREE.Vector3,
     cameraPos: THREE.Vector3 | null | undefined,
+    drivenVehiclePos?: { x: number; z: number } | null,
   ) => void;
   dispose: () => void;
 }
@@ -128,6 +134,15 @@ export function buildScienceDistrictWorld(
   );
   const ledCyanMat = trackMat(new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
   const ledGoldMat = trackMat(new THREE.MeshBasicMaterial({ color: 0xfbbf24 }));
+  const ledRedMat = trackMat(new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+  const hexWallMat = trackMat(createHexRedPerimeterWallMaterial(isReducedQ, texturesToDispose));
+  const { origamiWhiteMat, cyberGreyAiMat, darkCircuitBlueMat } = createCyberInteriorWallMaterials(
+    isReducedQ,
+    texturesToDispose,
+  );
+  trackMat(origamiWhiteMat);
+  trackMat(cyberGreyAiMat);
+  trackMat(darkCircuitBlueMat);
   ctx.streetLampMats.push(ledCyanMat);
 
   const boxGeo = pal.boxGeo;
@@ -155,6 +170,107 @@ export function buildScienceDistrictWorld(
     parent.add(m);
     return m;
   };
+
+  // ============================================================================
+  // 0. FUTURE CITY DYNAMIC PERIMETER WALL & AUTOMATIC SLIDING PORTAL DOORS
+  // ============================================================================
+  const { minX: wMinX, maxX: wMaxX, minZ: wMinZ, maxZ: wMaxZ, height: wallH, thickness: wallT, portalHeight } =
+    SCIENCE_WALL_BOUNDS;
+  const addWallSegment = (cx: number, cz: number, span: number, rotY = 0) => {
+    const wallMesh = addStructBox(root, hexWallMat, cx, wallH * 0.5, cz, span, wallH, wallT, rotY);
+    wallMesh.castShadow = !isReducedQ;
+    wallMesh.receiveShadow = true;
+    addStructBox(root, ledRedMat, cx, wallH + 0.14, cz, span, 0.28, wallT + 0.22, rotY);
+    addStructBox(root, darkFrameMat, cx, 0.45, cz, span, 0.9, wallT + 0.4, rotY);
+    if (Math.abs(rotY) > 0.2) {
+      addCollider(ctx.colliders, cx, 0, cz, wallT, wallH, span, 0, 'metal');
+    } else {
+      addCollider(ctx.colliders, cx, 0, cz, span, wallH, wallT, 0, 'metal');
+    }
+  };
+
+  // North Perimeter Wall (continuous rear fortification)
+  addWallSegment((wMinX + wMaxX) * 0.5, wMinZ, wMaxX - wMinX, 0);
+  // West Perimeter Wall (segmented cleanly around West Blvd Gate at z = -474, width 18 -> -483..-465)
+  addWallSegment(wMinX, (-696 + -483) * 0.5, -483 - wMinZ, Math.PI * 0.5);
+  addWallSegment(wMinX, (-465 + wMaxZ) * 0.5, wMaxZ - -465, Math.PI * 0.5);
+  // East Perimeter Wall (segmented cleanly around East Blvd Gate at z = -474, width 18 -> -483..-465)
+  addWallSegment(wMaxX, (-696 + -483) * 0.5, -483 - wMinZ, Math.PI * 0.5);
+  addWallSegment(wMaxX, (-465 + wMaxZ) * 0.5, wMaxZ - -465, Math.PI * 0.5);
+  // South Perimeter Wall (segmented cleanly around Parkway x=104 [96..112] & Main Ave x=140 [131..149])
+  addWallSegment((wMinX + 96) * 0.5, wMaxZ, 96 - wMinX, 0);
+  addWallSegment((112 + 131) * 0.5, wMaxZ, 131 - 112, 0);
+  addWallSegment((149 + wMaxX) * 0.5, wMaxZ, wMaxX - 149, 0);
+
+  // Corner Guard Pylons
+  [
+    [wMinX, wMinZ],
+    [wMaxX, wMinZ],
+    [wMinX, wMaxZ],
+    [wMaxX, wMaxZ],
+  ].forEach(([cx, cz]) => {
+    addStructBox(root, darkFrameMat, cx, (wallH + 2.2) * 0.5, cz, wallT + 1.8, wallH + 2.2, wallT + 1.8);
+    addStructBox(root, ledRedMat, cx, wallH + 2.35, cz, wallT + 2.0, 0.35, wallT + 2.0);
+  });
+
+  // 4 Automatic Proximity-Triggered Double Sliding Doors with Dynamic Colliders
+  const doorHeaderTex = createSignBannerTexture('FUTURE CITY', 'AUTOMATED SECURITY PORTAL', {
+    bg: '#16070a',
+    border: '#ef4444',
+    accent: '#fca5a5',
+    w: 768,
+    h: 180,
+  });
+  texturesToDispose.push(doorHeaderTex);
+  const doorHeaderMat = trackMat(new THREE.MeshBasicMaterial({ map: doorHeaderTex }));
+
+  interface SciencePortalVisual {
+    spec: (typeof SCIENCE_WALL_DOORS)[number];
+    leftWing: THREE.Group;
+    rightWing: THREE.Group;
+    statusMat: THREE.MeshBasicMaterial;
+    collider: import('./arena').ColliderBox;
+    wingHalfSpan: number;
+  }
+  const sciencePortals: SciencePortalVisual[] = SCIENCE_WALL_DOORS.map((doorSpec) => {
+    const portalGrp = new THREE.Group();
+    portalGrp.position.set(doorSpec.x, 0, doorSpec.z);
+    if (doorSpec.orientation === 'ns') portalGrp.rotation.y = Math.PI * 0.5;
+    root.add(portalGrp);
+
+    const halfW = doorSpec.width * 0.5;
+    // Heavy flanking gate pylons & overhead gantry lintel (allows full height clearance when open)
+    addStructBox(portalGrp, darkFrameMat, -halfW - 0.75, wallH * 0.5, 0, 1.5, wallH + 0.6, wallT + 1.0);
+    addStructBox(portalGrp, darkFrameMat, halfW + 0.75, wallH * 0.5, 0, 1.5, wallH + 0.6, wallT + 1.0);
+    addStructBox(portalGrp, hexWallMat, 0, (wallH + portalHeight) * 0.5, 0, doorSpec.width + 1.2, wallH - portalHeight, wallT + 0.3);
+    addStructBox(portalGrp, doorHeaderMat, 0, portalHeight + 2.1, wallT * 0.5 + 0.25, 11.5, 2.5, 0.16);
+    addStructBox(portalGrp, doorHeaderMat, 0, portalHeight + 2.1, -(wallT * 0.5 + 0.25), 11.5, 2.5, 0.16, Math.PI);
+
+    const statusMat = trackMat(new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+    addStructBox(portalGrp, statusMat, 0, portalHeight + 0.2, wallT * 0.5 + 0.25, doorSpec.width, 0.26, 0.2);
+    addStructBox(portalGrp, statusMat, 0, portalHeight + 0.2, -(wallT * 0.5 + 0.25), doorSpec.width, 0.26, 0.2);
+
+    const wingHalfSpan = halfW * 0.5;
+    const leftWing = new THREE.Group();
+    leftWing.position.set(-wingHalfSpan, 0, 0);
+    addStructBox(leftWing, hexWallMat, 0, portalHeight * 0.5, 0, halfW, portalHeight, 0.68);
+    addStructBox(leftWing, ledRedMat, halfW * 0.45, portalHeight * 0.5, 0, 0.28, portalHeight - 0.8, 0.78);
+
+    const rightWing = new THREE.Group();
+    rightWing.position.set(wingHalfSpan, 0, 0);
+    addStructBox(rightWing, hexWallMat, 0, portalHeight * 0.5, 0, halfW, portalHeight, 0.68);
+    addStructBox(rightWing, ledRedMat, -halfW * 0.45, portalHeight * 0.5, 0, 0.28, portalHeight - 0.8, 0.78);
+
+    portalGrp.add(leftWing, rightWing);
+
+    const colW = doorSpec.orientation === 'ew' ? doorSpec.width : 1.1;
+    const colD = doorSpec.orientation === 'ew' ? 1.1 : doorSpec.width;
+    addCollider(ctx.dynamicColliders, doorSpec.x, 0, doorSpec.z, colW, portalHeight, colD, 0, 'metal');
+    const dc = ctx.dynamicColliders[ctx.dynamicColliders.length - 1];
+
+    return { spec: doorSpec, leftWing, rightWing, statusMat, collider: dc, wingHalfSpan };
+  });
+  let doorOpenFracs = SCIENCE_WALL_DOORS.map(() => 0);
 
   // ============================================================================
   // 1. PLAZA DECK, ROADS, CROSSWALK MARKINGS, EV PARKING & LANDSCAPING
@@ -381,6 +497,27 @@ export function buildScienceDistrictWorld(
   // Atrium Hero Hologram Human + Robotic Arm
   buildFutureLabAtriumHero(labGroup, bank, anims);
 
+  // Interior Cyber Architectural Wall Cladding inside Future Lab (Origami White, Grey AI Tech, Dark Blue Circuit)
+  addStructBox(labInteriorGroup, cyberGreyAiMat, 0, LAB_ROOF_Y * 0.5, -LD * 0.5 + 0.44, LW - 1.2, LAB_ROOF_Y - 0.5, 0.12);
+  addStructBox(labInteriorGroup, origamiWhiteMat, -LW * 0.5 + 0.48, LAB_ROOF_Y * 0.5, 0, 0.12, LAB_ROOF_Y - 0.5, LD - 1.2);
+  addStructBox(labInteriorGroup, darkCircuitBlueMat, LW * 0.5 - 0.48, 2.8, 0, 0.12, 5.2, LD - 1.2);
+  addStructBox(labInteriorGroup, darkCircuitBlueMat, LW * 0.5 - 0.48, 14.0, 0, 0.12, 5.2, LD - 1.2);
+  addStructBox(labInteriorGroup, origamiWhiteMat, -21, LAB_ROOF_Y * 0.5, LD * 0.5 - 0.42, 24.5, LAB_ROOF_Y - 0.5, 0.12);
+  addStructBox(labInteriorGroup, origamiWhiteMat, 21, LAB_ROOF_Y * 0.5, LD * 0.5 - 0.42, 24.5, LAB_ROOF_Y - 0.5, 0.12);
+
+  // Center AI Telemetry Media Wall inside Future Lab North Atrium
+  addStructBox(labInteriorGroup, darkFrameMat, 0, 3.0, -LD * 0.5 + 0.65, 11.4, 4.4, 0.22);
+  if (ctx.displays) {
+    const { material: aiWallMat } = ctx.displays.createDisplayMaterial('smart_city_charts', {
+      title: 'FUTURE LAB AI CORE // LIVE',
+      subtitle: 'NEURAL WORLD TWIN · ACTIVE',
+      accentHex: '#22d3ee',
+      worldPos: { x: LX, y: 3.0, z: LZ - LD * 0.5 + 0.8 },
+    });
+    const aiWallFace = addStructBox(labInteriorGroup, aiWallMat, 0, 3.0, -LD * 0.5 + 0.8, 10.6, 3.8, 0.08);
+    void aiWallFace;
+  }
+
   // Lab Interior Details: Side Reception Desk (clear central aisle!), Ceiling Light Strips, Staircases & Elevators
   addStructBox(labInteriorGroup, whiteFacadeMat, 12.2, 0.55, 15.8, 5.4, 1.1, 1.6);
   addStructBox(labInteriorGroup, ledCyanMat, 12.2, 0.92, 16.65, 5.1, 0.14, 0.08);
@@ -555,6 +692,13 @@ export function buildScienceDistrictWorld(
   addCollider(ctx.colliders, MX - 20.5, 0, MZ + LD * 0.5, 27, M_WALL_H, 1.0);
   addCollider(ctx.colliders, MX + 20.5, 0, MZ + LD * 0.5, 27, M_WALL_H, 1.0);
 
+  // Science Museum Interior Cyber Architectural Wall Cladding
+  addStructBox(museumInteriorGroup, darkCircuitBlueMat, 0, M_WALL_H * 0.5, -LD * 0.5 + 0.44, LW - 1.2, M_WALL_H - 0.4, 0.12);
+  addStructBox(museumInteriorGroup, cyberGreyAiMat, LW * 0.5 - 0.48, M_WALL_H * 0.5, 0, 0.12, M_WALL_H - 0.4, LD - 1.2);
+  addStructBox(museumInteriorGroup, origamiWhiteMat, -LW * 0.5 + 0.48, 2.8, 0, 0.12, 5.2, LD - 1.2);
+  addStructBox(museumInteriorGroup, origamiWhiteMat, -21, M_WALL_H * 0.5, LD * 0.5 - 0.44, 24.5, M_WALL_H - 0.4, 0.12);
+  addStructBox(museumInteriorGroup, origamiWhiteMat, 21, M_WALL_H * 0.5, LD * 0.5 - 0.44, 24.5, M_WALL_H - 0.4, 0.12);
+
   // Museum Interior: Side Information Desk (clear central foyer!), Seating Benches, T-Rex Skeleton & 8 Alcoves
   addStructBox(museumInteriorGroup, whiteFacadeMat, 12.2, 0.55, 15.8, 5.4, 1.1, 1.6);
   addStructBox(museumInteriorGroup, ledGoldMat, 12.2, 0.92, 16.65, 5.1, 0.14, 0.08);
@@ -653,12 +797,19 @@ export function buildScienceDistrictWorld(
     addStructBox(dg, darkFrameMat, -3.2, 1.35, dome.radius + 0.45, 2.7, 1.15, 0.22);
     addStructBox(dg, plaqueMat, -3.2, 1.35, dome.radius + 0.58, 2.5, 0.96, 0.06);
 
-    // Interior Animated Exhibits (On-Demand Visibility for Android 6GB RAM!)
+    // Interior 3D Animated Video Cinema Stage (On-Demand Visibility + Live .mp4 Streams)
     const intGrp = new THREE.Group();
     intGrp.name = `${dome.id}_interior`;
     dg.add(intGrp);
     domeInteriorGroups[dome.id] = intGrp;
-    populateDomeExhibits(dome.index as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, intGrp, bank, anims);
+    populateDomeExhibits(
+      dome.index as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8,
+      intGrp,
+      bank,
+      anims,
+      ctx.displays,
+      dome,
+    );
 
     // Register [E] WorldInteractable for each Dome
     const domeInteract: WorldInteractable = {
@@ -779,7 +930,25 @@ export function buildScienceDistrictWorld(
       state.elevatorFloor.labWest = floor;
       state.elevatorFloor.labEast = floor;
     },
-    update: (dt, elapsed, playerPos, cameraPos) => {
+    update: (dt, elapsed, playerPos, cameraPos, drivenVehiclePos) => {
+      // Update Future City Perimeter Automatic Doors & Dynamic Colliders
+      doorOpenFracs = stepScienceWallDoors(doorOpenFracs, dt, playerPos, drivenVehiclePos);
+      for (let pIdx = 0; pIdx < sciencePortals.length; pIdx++) {
+        const portal = sciencePortals[pIdx];
+        const openFrac = doorOpenFracs[pIdx] ?? 0;
+        const slideOffset = openFrac * (portal.spec.width * 0.5 + 0.5);
+        portal.leftWing.position.x = -portal.wingHalfSpan - slideOffset;
+        portal.rightWing.position.x = portal.wingHalfSpan + slideOffset;
+        portal.statusMat.color.setHex(openFrac >= 0.72 ? 0x22d3ee : 0xef4444);
+        if (openFrac >= 0.72) {
+          portal.collider.minY = 900;
+          portal.collider.maxY = 901;
+        } else {
+          portal.collider.minY = 0;
+          portal.collider.maxY = portalHeight;
+        }
+      }
+
       const cx = cameraPos?.x ?? playerPos.x;
       const cz = cameraPos?.z ?? playerPos.z;
       updateOnDemandInteriorLoading(state, cx, cz, playerPos.x, playerPos.z);

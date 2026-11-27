@@ -505,6 +505,10 @@ export function getEngineAudioProfile(vehicleKind: string): EngineAudioProfile {
     case 'mansion_ev_gt':
     case 'vision_silver':
     case 'gullwing_coupe':
+    case 'future_sports_car':
+    case 'future_super_car':
+    case 'future_flying_car':
+    case 'koutone_hover':
       return {
         sampleKey: 'mansion_engine_tokyo',
         baseFreqHz: 68,
@@ -515,12 +519,25 @@ export function getEngineAudioProfile(vehicleKind: string): EngineAudioProfile {
         throttleRateBoost: 0.78,
         filterBaseHz: 290,
       };
+    case 'future_bike':
+      return {
+        sampleKey: 'mansion_engine_tokyo',
+        baseFreqHz: 86,
+        subRatio: 0.5,
+        idleGain: 0.02,
+        throttleGainBoost: 0.24,
+        idleRate: 0.94,
+        throttleRateBoost: 0.86,
+        filterBaseHz: 320,
+      };
     case 'mansion_hummer_gold':
     case 'mansion_escalade_gull':
     case 'range_black_suv':
     case 'thar_black_4x4':
     case 'cyber_pickup':
     case 'cyber_gold':
+    case 'future_suv':
+    case 'future_tank':
       return {
         sampleKey: 'mansion_engine_2',
         baseFreqHz: 38,
@@ -548,6 +565,8 @@ export function getEngineAudioProfile(vehicleKind: string): EngineAudioProfile {
         filterBaseHz: 185,
       };
     case 'apex_heli':
+    case 'future_heli':
+    case 'future_drone':
       return {
         sampleKey: 'helicopter_rotor',
         baseFreqHz: 32,
@@ -765,6 +784,17 @@ export function computeRotatedVideoDraw(
 export function stepDjTrackIndex(current: number, totalTracks = 2): number {
   if (totalTracks <= 1) return 0;
   return (Math.max(0, Math.floor(current)) + 1) % totalTracks;
+}
+
+/**
+ * Returns true only during night phase (and not manually dismissed) so VIP cars,
+ * rooftop helicopter guests, and mansion club dancers only visit Apex Mansion at night.
+ */
+export function shouldMansionNightGuestsAttend(
+  phase: 'morning' | 'afternoon' | 'sunset' | 'night',
+  manualDayDepartureActive = false,
+): boolean {
+  return phase === 'night' && !manualDayDepartureActive;
 }
 
 

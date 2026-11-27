@@ -1,5 +1,5 @@
-import React from 'react';
-import { Eye, Layers, Palette, RotateCcw, Sparkles, Sun } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Cpu, Eye, Layers, Palette, RotateCcw, Sparkles, Sun } from 'lucide-react';
 import type {
   GraphicsQuality,
   HudSettings,
@@ -46,6 +46,25 @@ export const LobbyGraphicsTab: React.FC<LobbyGraphicsTabProps> = ({
 }) => {
   const gfx = resolveGraphicsProfile(hudSettings, false);
 
+  const gpuAdapterInfo = useMemo(() => {
+    if (typeof document === 'undefined') return { name: 'Hardware WebGL2 GPU', software: false };
+    try {
+      const canvas = document.createElement('canvas');
+      const gl =
+        (canvas.getContext('webgl2', { powerPreference: 'high-performance' }) as WebGL2RenderingContext | null) ||
+        (canvas.getContext('webgl', { powerPreference: 'high-performance' }) as WebGLRenderingContext | null);
+      if (!gl) return { name: 'WebGL GPU Context', software: false };
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const raw = ext
+        ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || gl.getParameter(gl.RENDERER) || '')
+        : String(gl.getParameter(gl.RENDERER) || '');
+      const sw = /swiftshader|llvmpipe|softpipe|mesa offscreen|software/i.test(raw);
+      return { name: raw || 'Hardware WebGL2 GPU', software: sw };
+    } catch {
+      return { name: 'Hardware WebGL2 GPU', software: false };
+    }
+  }, []);
+
   const applyPreset = (quality: GraphicsQuality) => {
     const patch = buildPresetGraphicsPatch(quality);
     onUpdateHudSettings((prev) => ({ ...prev, ...patch }));
@@ -72,6 +91,7 @@ export const LobbyGraphicsTab: React.FC<LobbyGraphicsTabProps> = ({
               ...prev,
               ...buildPresetGraphicsPatch('high'),
               mapSaturation: 1.38,
+              hardwareAcceleration: true,
             }))
           }
           className="liquid-glass-card px-3.5 py-2 rounded-xl text-xs font-semibold text-cyan-200 hover:text-white flex items-center gap-1.5 cursor-pointer"
@@ -361,6 +381,56 @@ export const LobbyGraphicsTab: React.FC<LobbyGraphicsTabProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Hardware Accelerator GPU Pipeline Card */}
+      <div
+        data-testid="hardware-accelerator-card"
+        className="liquid-glass-card liquid-prism-edge rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3"
+      >
+        <div className="space-y-1 min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-sm font-bold text-white">
+            <Cpu className="w-4 h-4 text-emerald-300 shrink-0" />
+            <span>GPU Hardware Accelerator</span>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                gfx.hardwareAcceleration && !gpuAdapterInfo.software
+                  ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200'
+                  : 'bg-amber-500/20 border-amber-400/60 text-amber-200'
+              }`}
+            >
+              {gfx.hardwareAcceleration
+                ? gpuAdapterInfo.software
+                  ? 'FALLBACK COMPATIBLE'
+                  : 'GPU ACCELERATED'
+                : 'STANDARD'}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 leading-snug">
+            Enables high-performance GPU WebGL2 pipeline, desynchronized low-latency swapchain, and paced shadow pass updates for smoother gameplay.
+          </p>
+          <div className="text-[10px] text-cyan-200/90 truncate">
+            Active Adapter: {gpuAdapterInfo.name}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          data-testid="hardware-accel-toggle"
+          onClick={() =>
+            onUpdateHudSettings((prev) => ({
+              ...prev,
+              hardwareAcceleration: !gfx.hardwareAcceleration,
+            }))
+          }
+          className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer shrink-0 ${
+            gfx.hardwareAcceleration
+              ? 'bg-emerald-500/25 border-emerald-400/75 text-emerald-100 shadow-[0_0_14px_rgba(16,185,129,0.28)]'
+              : 'bg-slate-950/60 border-white/15 text-slate-300'
+          }`}
+        >
+          {gfx.hardwareAcceleration ? 'ENABLED · SMOOTH GPU' : 'DISABLED'}
+        </button>
       </div>
     </div>
   );

@@ -1761,10 +1761,14 @@ class TacticalAudioEngine {
 
     const isSuvOrHeli =
       kindStr === 'apex_heli' ||
+      kindStr === 'future_heli' ||
+      kindStr === 'future_drone' ||
       kindStr.includes('hummer') ||
       kindStr.includes('escalade') ||
       kindStr.includes('range') ||
       kindStr.includes('thar') ||
+      kindStr.includes('suv') ||
+      kindStr.includes('tank') ||
       kindStr.includes('cyber');
     const isEvOrGt =
       kindStr === 'mansion_ev_gt' || kindStr === 'vision_silver' || kindStr === 'gullwing_coupe';
@@ -1814,7 +1818,10 @@ class TacticalAudioEngine {
     if (!this.ctx || !this.vehicleOsc || !this.vehicleSubOsc || !this.vehicleGain || !this.vehicleFilter) return;
     const now = this.ctx.currentTime;
     const targets = computeEngineAudioTargets(this.activeVehicleKind, speedKmh, throttle, airborne);
-    const isHeli = this.activeVehicleKind === 'apex_heli';
+    const isHeli =
+      this.activeVehicleKind === 'apex_heli' ||
+      this.activeVehicleKind === 'future_heli' ||
+      this.activeVehicleKind === 'future_drone';
     const bladeMod = isHeli ? 1 + 0.12 * Math.sin(now * 28.0) : 1.0;
 
     this.vehicleOsc.frequency.setTargetAtTime(targets.oscHz * bladeMod, now, 0.06);

@@ -41,6 +41,7 @@ import {
   getVehicleSurfaceOffsetY,
   MANSION_HELIPAD_2_COORDS,
   MANSION_ROOF_Y,
+  shouldMansionNightGuestsAttend,
 } from './mansionSystems';
 
 export interface SignalVisualGroup {
@@ -6097,6 +6098,7 @@ export class SimulatorNpcManager {
       const startZ = -172 + idx * 14;
       carBuilt.root.position.set(2.8, 0.05, startZ);
       carBuilt.root.rotation.set(0, Math.PI, 0);
+      carBuilt.root.visible = false;
       this.root.add(carBuilt.root);
 
       const him = buildVipStyledHumanoid(
@@ -6137,8 +6139,8 @@ export class SimulatorNpcManager {
         y: 0.05,
         z: startZ,
         yaw: Math.PI,
-        stage: 'approach_gate',
-        stageTimer: vc.delaySec,
+        stage: 'away_cooldown',
+        stageTimer: 0.5 + idx * 0.9,
         parkSlot: vc.park,
         partySpot: vc.party,
         driveWps: [],
@@ -6158,6 +6160,7 @@ export class SimulatorNpcManager {
       const heliBuilt = buildAwaisPrivateHelicopter(this.geometries, this.materials);
       const pad = MANSION_HELIPAD_2_COORDS;
       heliBuilt.root.position.set(pad.x + 48, pad.deckY + 34, pad.z + 52);
+      heliBuilt.root.visible = false;
       this.root.add(heliBuilt.root);
 
       const guardOffsets: Array<[number, number, number]> = [
@@ -6238,8 +6241,8 @@ export class SimulatorNpcManager {
         z: pad.z + 52,
         yaw: pad.yaw,
         rotorSpeed: 32,
-        stage: 'fly_in',
-        stageTimer: 0,
+        stage: 'away_cooldown',
+        stageTimer: 1.0,
         guards,
         awais,
         partner,
@@ -6832,9 +6835,9 @@ export class SimulatorNpcManager {
   ): GangFiredShot[] {
     const prevPhase = this.currentPhase;
     this.currentPhase = phase;
-    if (phase === 'night' || phase === 'sunset') {
+    if (phase === 'night') {
       this.manualDayDepartureActive = false;
-    } else if (prevPhase === 'night' && (phase === 'morning' || phase === 'afternoon')) {
+    } else if (prevPhase === 'night') {
       this.triggerMansionPartyDeparture();
     }
     this.lastElapsedSec = elapsedSec;
@@ -7073,6 +7076,10 @@ export class SimulatorNpcManager {
         continue;
       }
       if (n.subMode === 'party_dancer' && this.env.mansionPartyZone) {
+        if (!shouldMansionNightGuestsAttend(phase, this.manualDayDepartureActive)) {
+          n.root.visible = false;
+          continue;
+        }
         const mp = this.env.mansionPartyZone;
         const beat = elapsedSec * 6.8 + n.id * 1.15;
         const bounce = Math.abs(Math.sin(beat)) * 0.08;
@@ -8778,8 +8785,9 @@ export class SimulatorNpcManager {
       p.mesh.scale.set(s, s * 1.2, s);
     }
 
-    // 7. Step Billionaire Luxury Car Couples & "AWAIS BALOCH" Private Helicopter Party Cycle
-    const isDepartureMorning = phase === 'morning' || this.manualDayDepartureActive;
+    // 7. Step Billionaire Luxury Car Couples & "AWAIS BALOCH" Private Helicopter Party Cycle (Night-only guests)
+    const nightPartyAllowed = shouldMansionNightGuestsAttend(phase, this.manualDayDepartureActive);
+    const isDepartureDay = !nightPartyAllowed;
 
     for (let i = 0; i < this.vipCarCouples.length; i++) {
       const vc = this.vipCarCouples[i];
@@ -8895,7 +8903,11 @@ export class SimulatorNpcManager {
       };
 
       if (vc.stage === 'approach_gate') {
-        if (vc.stageTimer > 0) {
+        if (isDepartureDay) {
+          vc.root.visible = false;
+          vc.stage = 'away_cooldown';
+          vc.stageTimer = 2;
+        } else if (vc.stageTimer > 0) {
           vc.stageTimer -= clampedDt;
         } else {
           vc.driveWps = [
@@ -8911,15 +8923,24 @@ export class SimulatorNpcManager {
           }
         }
       } else if (vc.stage === 'wait_gate_in') {
-        vc.stageTimer -= clampedDt;
-        if (vc.stageTimer <= 0) {
+        if (isDepartureDay) {
           vc.driveWps = [
-            { x: 2.8, z: -268 },
-            { x: vc.parkSlot.x > 0 ? 11.5 : -11.5, z: -282 },
-            { x: vc.parkSlot.x, z: vc.parkSlot.z },
+            { x: -2.8, z: -225 },
+            { x: -2.8, z: -162 },
           ];
           vc.driveWpIdx = 0;
-          vc.stage = 'drive_park';
+          vc.stage = 'drive_away';
+        } else {
+          vc.stageTimer -= clampedDt;
+          if (vc.stageTimer <= 0) {
+            vc.driveWps = [
+              { x: 2.8, z: -268 },
+              { x: vc.parkSlot.x > 0 ? 11.5 : -11.5, z: -282 },
+              { x: vc.parkSlot.x, z: vc.parkSlot.z },
+            ];
+            vc.driveWpIdx = 0;
+            vc.stage = 'drive_park';
+          }
         }
       } else if (vc.stage === 'drive_park') {
         if (moveAlongDriveWps(8.5)) {
@@ -8946,7 +8967,7 @@ export class SimulatorNpcManager {
       } else if (vc.stage === 'party_dance') {
         vc.stageTimer += clampedDt;
         stepCoupleAlongWps(2.8, true);
-        if (this.manualDayDepartureActive || (isDepartureMorning && vc.stageTimer > 6) || vc.stageTimer > 125) {
+        if (isDepartureDay || vc.stageTimer > 125) {
           vc.coupleWps = [
             { x: 27.6, y: 11.6, z: -349.6, stairDir: 0 },
             ...buildStaircase2Path(2, 0),
@@ -8992,10 +9013,11 @@ export class SimulatorNpcManager {
           vc.root.visible = false;
         }
       } else if (vc.stage === 'away_cooldown') {
+        vc.root.visible = false;
         vc.stageTimer -= clampedDt;
-        if (vc.stageTimer <= 0 && !isDepartureMorning) {
+        if (vc.stageTimer <= 0 && nightPartyAllowed) {
           vc.x = 2.8;
-          vc.z = -168;
+          vc.z = -168 - i * 8;
           vc.yaw = Math.PI;
           vc.root.visible = true;
           vc.stage = 'approach_gate';
@@ -9091,33 +9113,43 @@ export class SimulatorNpcManager {
       };
 
       if (hg.stage === 'fly_in') {
-        hg.heliRoot.visible = true;
-        const dx = pad.x - hg.x;
-        const dy = pad.deckY - hg.y;
-        const dz = pad.z - hg.z;
-        const dist = Math.hypot(dx, dy, dz);
-        if (dist <= 0.45) {
-          hg.x = pad.x;
-          hg.y = pad.deckY;
-          hg.z = pad.z;
-          hg.yaw = pad.yaw;
-          hg.stage = 'land_settle';
-          hg.stageTimer = 2.0;
+        if (isDepartureDay) {
+          hg.heliRoot.visible = false;
+          hg.stage = 'away_cooldown';
+          hg.stageTimer = 2;
         } else {
-          const spd = Math.min(dist, (dist > 14 ? 14.5 : 5.2) * clampedDt);
-          hg.x += (dx / dist) * spd;
-          hg.y += (dy / dist) * spd;
-          hg.z += (dz / dist) * spd;
-          if (Math.hypot(dx, dz) > 2.5) {
-            hg.yaw = Math.atan2(dx, dz);
+          hg.heliRoot.visible = true;
+          const dx = pad.x - hg.x;
+          const dy = pad.deckY - hg.y;
+          const dz = pad.z - hg.z;
+          const dist = Math.hypot(dx, dy, dz);
+          if (dist <= 0.45) {
+            hg.x = pad.x;
+            hg.y = pad.deckY;
+            hg.z = pad.z;
+            hg.yaw = pad.yaw;
+            hg.stage = 'land_settle';
+            hg.stageTimer = 2.0;
           } else {
-            hg.yaw += (pad.yaw - hg.yaw) * Math.min(1, clampedDt * 4);
+            const spd = Math.min(dist, (dist > 14 ? 14.5 : 5.2) * clampedDt);
+            hg.x += (dx / dist) * spd;
+            hg.y += (dy / dist) * spd;
+            hg.z += (dz / dist) * spd;
+            if (Math.hypot(dx, dz) > 2.5) {
+              hg.yaw = Math.atan2(dx, dz);
+            } else {
+              hg.yaw += (pad.yaw - hg.yaw) * Math.min(1, clampedDt * 4);
+            }
           }
         }
       } else if (hg.stage === 'land_settle') {
         hg.rotorSpeed = Math.max(1.5, hg.rotorSpeed - clampedDt * 18);
         hg.stageTimer -= clampedDt;
-        if (hg.stageTimer <= 0) {
+        if (isDepartureDay) {
+          hg.rotorSpeed = 34;
+          hg.stage = 'takeoff';
+          hg.stageTimer = 0;
+        } else if (hg.stageTimer <= 0) {
           for (let g = 0; g < hg.guards.length; g++) {
             const gd = hg.guards[g];
             gd.rig.root.visible = true;
@@ -9143,7 +9175,7 @@ export class SimulatorNpcManager {
       } else if (hg.stage === 'party_dance') {
         hg.stageTimer += clampedDt;
         stepHeliPairAlongWps(2.6, true);
-        if (this.manualDayDepartureActive || (isDepartureMorning && hg.stageTimer > 8) || hg.stageTimer > 135) {
+        if (isDepartureDay || hg.stageTimer > 135) {
           hg.wps = [
             { x: 22.4, y: 11.6, z: -350.5, stairDir: 0 },
             ...buildStaircase2Path(2, 3),
@@ -9178,12 +9210,14 @@ export class SimulatorNpcManager {
           hg.stageTimer = 18;
         }
       } else if (hg.stage === 'away_cooldown') {
+        hg.heliRoot.visible = false;
         hg.stageTimer -= clampedDt;
-        if (hg.stageTimer <= 0 && !isDepartureMorning) {
+        if (hg.stageTimer <= 0 && nightPartyAllowed) {
           hg.x = pad.x + 48;
           hg.y = pad.deckY + 34;
           hg.z = pad.z + 52;
           hg.rotorSpeed = 32;
+          hg.heliRoot.visible = true;
           hg.stage = 'fly_in';
         }
       }

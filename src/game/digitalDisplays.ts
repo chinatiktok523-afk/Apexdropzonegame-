@@ -28,7 +28,8 @@ export type DigitalDisplayKind =
   | 'neon_city_wall'
   | 'smart_farm_telemetry'
   | 'smart_city_dome_banner'
-  | 'smart_city_charts';
+  | 'smart_city_charts'
+  | 'sci_dome_screen';
 
 export interface AnimatedDisplayEntry {
   kind: DigitalDisplayKind;
@@ -182,6 +183,7 @@ export class DigitalDisplayManager {
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       toneMapped: false,
+      side: THREE.DoubleSide,
     });
     entry.material = material;
     this.entries.push(entry);
@@ -505,9 +507,9 @@ export class DigitalDisplayManager {
     damage = 25,
     elapsedSec = 0,
   ): 'cracked' | 'shattered' {
-    const step = damage >= 75 ? 2 : 1;
+    const step = damage >= 95 ? 3 : damage >= 55 ? 2 : 1;
     entry.damageHits = Math.min(4, entry.damageHits + step);
-    entry.repairTimer = 5.0;
+    entry.repairTimer = entry.damageHits >= 3 ? 25.0 : 10.0;
     if (entry.cracks.length < 6) {
       entry.cracks.push({
         u: THREE.MathUtils.clamp(uvX, 0.08, 0.92),
@@ -543,23 +545,30 @@ export class DigitalDisplayManager {
     const dx = e.worldPos.x - cameraPos.x;
     const dy = e.worldPos.y - cameraPos.y;
     const dz = e.worldPos.z - cameraPos.z;
-    const maxDist = e.video
-      ? quality === 'low'
-        ? 28
-        : quality === 'medium'
-          ? 48
-          : 260
-      : e.kind === 'stadium_scoreboard'
+    const maxDist =
+      e.kind === 'sci_dome_screen'
         ? quality === 'low'
-          ? 85
-          : quality === 'medium'
-            ? 125
-            : 240
-        : quality === 'low'
           ? 55
           : quality === 'medium'
-            ? 85
-            : 190;
+            ? 95
+            : 260
+        : e.video
+          ? quality === 'low'
+            ? 28
+            : quality === 'medium'
+              ? 48
+              : 260
+          : e.kind === 'stadium_scoreboard'
+            ? quality === 'low'
+              ? 85
+              : quality === 'medium'
+                ? 125
+                : 240
+            : quality === 'low'
+              ? 55
+              : quality === 'medium'
+                ? 85
+                : 190;
     return dx * dx + dy * dy + dz * dz <= maxDist * maxDist;
   }
 
@@ -1440,6 +1449,38 @@ export class DigitalDisplayManager {
       ctx.fillStyle = '#67e8f9';
       ctx.font = 'bold 11px monospace';
       ctx.fillText('OUTPUT & FLEET STABILITY CURVE', gx + gw * 0.5, h - 12);
+    } else if (kind === 'sci_dome_screen') {
+      const accent = accentHex || '#22d3ee';
+      const bg = ctx.createRadialGradient(w * 0.5, h * 0.5, 16, w * 0.5, h * 0.5, w * 0.65);
+      bg.addColorStop(0, '#0f2847');
+      bg.addColorStop(1, '#040814');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(10, 10, w - 20, h - 20);
+
+      for (let ring = 0; ring < 3; ring++) {
+        ctx.save();
+        ctx.translate(w * 0.5, h * 0.5);
+        ctx.rotate(t * (0.45 + ring * 0.25) * (ring % 2 === 0 ? 1 : -1));
+        ctx.strokeStyle = accent;
+        ctx.globalAlpha = 0.55 - ring * 0.12;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 56 + ring * 34, 24 + ring * 14, 0, 0, Math.PI * 1.65);
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title || 'FUTURE DOME HOLOGRAM', w * 0.5, h * 0.48);
+      ctx.fillStyle = accent;
+      ctx.font = 'bold 13px monospace';
+      ctx.fillText(subtitle || '3D ANIMATION STREAM ACTIVE', w * 0.5, h * 0.64);
     }
 
     if (entry.damageHits > 0) {

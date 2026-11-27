@@ -40,6 +40,105 @@ export const SCIENCE_PLAZA_CENTER = {
   globeZ: -514,
 } as const;
 
+export const SCIENCE_WALL_BOUNDS = {
+  minX: -20,
+  maxX: 248,
+  minZ: -696,
+  maxZ: -462,
+  height: 14.5,
+  thickness: 2.4,
+  portalHeight: 10.2,
+} as const;
+
+export interface ScienceWallDoorSpec {
+  id: 'west_blvd' | 'south_parkway' | 'south_avenue' | 'east_blvd';
+  label: string;
+  x: number;
+  z: number;
+  width: number;
+  orientation: 'ew' | 'ns'; // 'ew' spans along X on a N/S wall; 'ns' spans along Z on an E/W wall
+  triggerRadius: number;
+}
+
+export const SCIENCE_WALL_DOORS: readonly ScienceWallDoorSpec[] = [
+  {
+    id: 'west_blvd',
+    label: 'Future City West Portal',
+    x: SCIENCE_WALL_BOUNDS.minX,
+    z: -474,
+    width: 18,
+    orientation: 'ns',
+    triggerRadius: 23,
+  },
+  {
+    id: 'south_parkway',
+    label: 'Future City Parkway Portal',
+    x: 104,
+    z: SCIENCE_WALL_BOUNDS.maxZ,
+    width: 16,
+    orientation: 'ew',
+    triggerRadius: 23,
+  },
+  {
+    id: 'south_avenue',
+    label: 'Future City Main Avenue Portal',
+    x: 140,
+    z: SCIENCE_WALL_BOUNDS.maxZ,
+    width: 18,
+    orientation: 'ew',
+    triggerRadius: 23,
+  },
+  {
+    id: 'east_blvd',
+    label: 'Future City East Portal',
+    x: SCIENCE_WALL_BOUNDS.maxX,
+    z: -474,
+    width: 18,
+    orientation: 'ns',
+    triggerRadius: 23,
+  },
+] as const;
+
+/**
+ * Steps a Future City automatic sliding wall door fraction [0..1] based on
+ * proximity to either the player or an active driven vehicle.
+ */
+export function stepScienceWallDoors(
+  currentOpenFracs: readonly number[],
+  dt: number,
+  playerPos: { x: number; z: number },
+  vehiclePos?: { x: number; z: number } | null,
+): number[] {
+  const step = Math.min(1, Math.max(0, dt) * 2.4);
+  return SCIENCE_WALL_DOORS.map((door, idx) => {
+    const cur = currentOpenFracs[idx] ?? 0;
+    const pDist = Math.hypot(playerPos.x - door.x, playerPos.z - door.z);
+    const vDist = vehiclePos ? Math.hypot(vehiclePos.x - door.x, vehiclePos.z - door.z) : Infinity;
+    const targetOpen = Math.min(pDist, vDist) <= door.triggerRadius ? 1 : 0;
+    if (cur < targetOpen) return Math.min(1, cur + step);
+    if (cur > targetOpen) return Math.max(0, cur - step * 0.75);
+    return cur;
+  });
+}
+
+/** Attached animated 3D projection MP4 streams for each of the 8 Future City Glass Domes. */
+export const SCIENCE_DOME_VIDEO_PLAYLISTS: readonly string[][] = [
+  ['./assets/aistudio/new_livve_wallpaper_hd_4k_MP4__99ad0d8a.mp4', './assets/aistudio/neon_city_wall_loop.mp4'],
+  [
+    './assets/aistudio/Green_and_black___Green_science_aesthetic__Motion_graphics_design__Creative_learning_MP4__e046ebe9.mp4',
+    './assets/aistudio/neon_city_wall_loop.mp4',
+  ],
+  ['./assets/aistudio/Heart_Red_MP4__3e0ba08c.mp4', './assets/aistudio/neon_city_wall_loop.mp4'],
+  [
+    './assets/aistudio/Gambar_seni_keren___Wallpaper_keren__Fantasi_gelap__Wallpaper_ponsel_hd_MP4__07fdfce5.mp4',
+    './assets/aistudio/gaming_screen_loop.mp4',
+  ],
+  ['./assets/aistudio/_______________________________MP4__a701545e.mp4', './assets/aistudio/neon_city_wall_loop.mp4'],
+  ['./assets/aistudio/Dark_Blue_and_White_Futuristic_MP4__4ad3d254.mp4', './assets/aistudio/neon_city_wall_loop.mp4'],
+  ['./assets/aistudio/Golden_Steampunk_Garmin_Watch_Face_____MP4__3f619f85.mp4', './assets/aistudio/gaming_screen_loop.mp4'],
+  ['./assets/aistudio/neon_city_wall_loop.mp4', './assets/aistudio/Dark_Blue_and_White_Futuristic_MP4__4ad3d254.mp4'],
+];
+
 export type ScienceLabDepartmentId =
   | 'ai_lab'
   | 'robotics_lab'

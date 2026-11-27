@@ -2905,11 +2905,16 @@ export function buildUnifiedSimulatorArena(
     { id: 'sc_scooter_eco_park', kind: 'electric_scooter', x: -93, z: -474, yaw: -0.35 },
     { id: 'sc_scooter_station_plaza', kind: 'electric_scooter', x: -121, z: -536, yaw: 0.9 },
     { id: 'sc_scooter_research_plaza', kind: 'electric_scooter', x: -134, z: -554, yaw: -0.8 },
-    // FUTURISTIC SCIENCE DISTRICT EV CHARGING BAY FLEET
-    { id: 'sci_ev_sport_1', kind: 'vision_silver', x: -2, z: -501, yaw: 0 },
-    { id: 'sci_ev_hyper_2', kind: 'lambo_blue_hyper', x: 5.5, z: -501, yaw: 0 },
-    { id: 'sci_ev_bike_1', kind: 'digital_bike', x: 13, z: -501, yaw: 0, bikeStyle: BIKE_STYLES[0].id },
-    { id: 'sci_ev_bike_2', kind: 'digital_bike', x: 20.5, z: -501, yaw: 0, bikeStyle: BIKE_STYLES[2].id },
+    // FUTURISTIC SCIENCE DISTRICT / FUTURE CITY FLEET (All 9 Future City Vehicles)
+    { id: 'sci_ev_sport_1', kind: 'future_sports_car', x: -2, z: -501, yaw: 0 },
+    { id: 'sci_ev_super_2', kind: 'future_super_car', x: 5.5, z: -501, yaw: 0 },
+    { id: 'sci_ev_bike_1', kind: 'future_bike', x: 13, z: -501, yaw: 0 },
+    { id: 'sci_ev_koutone_1', kind: 'koutone_hover', x: 20.5, z: -501, yaw: 0 },
+    { id: 'sci_plaza_suv_1', kind: 'future_suv', x: 58, z: -489, yaw: 0 },
+    { id: 'sci_plaza_flying_1', kind: 'future_flying_car', x: 117, z: -578, yaw: 0 },
+    { id: 'sci_plaza_heli_1', kind: 'future_heli', x: 117, z: -592, yaw: 0 },
+    { id: 'sci_east_drone_1', kind: 'future_drone', x: 232, z: -506, yaw: -Math.PI * 0.5 },
+    { id: 'sci_east_tank_1', kind: 'future_tank', x: 232, z: -532, yaw: -Math.PI * 0.5 },
   ];
 
   // 9. DINING SEATS + HOT FOOD STEAM

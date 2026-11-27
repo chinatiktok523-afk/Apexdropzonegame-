@@ -13,6 +13,7 @@ import {
   computeWireLedScale,
 } from './mansionSystems';
 import { PropMeshAssembler, createPropPbrMaterials } from './urbanProps';
+import { MAIN_SCREEN_VIDEO_PLAYLIST } from './lobbyConfig';
 
 export interface MansionInteriorResult {
   roomLightMats: THREE.MeshStandardMaterial[];
@@ -644,9 +645,7 @@ export function buildMansionInteriorsAndRooftop(
     }
     pb.addBox(L.tvBezelX, 2.85, L.tvZ, 0.14, 2.84, 5.04, 0x0f172a);
     const { material: lobbyTvMat, entry: lobbyTvEntry } = ctx.displays.createVideoDisplayMaterial(
-      [
-        './assets/aistudio/main_screen_video_4292961f.mp4',
-      ],
+      MAIN_SCREEN_VIDEO_PLAYLIST,
       'car_second_lcd',
       {
         title: 'MAIN SCREEN VIDEO',

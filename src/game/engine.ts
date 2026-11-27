@@ -734,6 +734,7 @@ export class ShooterEngine {
   private hudSyncTimer = 0;
   private disposed = false;
   private resizeObserver: ResizeObserver | null = null;
+  private shadowPaceFrame = 0;
 
   constructor(container: HTMLElement, callbacks: EngineCallbacks) {
     this.container = container;
@@ -991,7 +992,8 @@ export class ShooterEngine {
       prevProfile.reflectionQuality !== nextProfile.reflectionQuality ||
       prevProfile.textureQuality !== nextProfile.textureQuality ||
       prevProfile.mapQuality !== nextProfile.mapQuality ||
-      prevProfile.drawDistance !== nextProfile.drawDistance;
+      prevProfile.drawDistance !== nextProfile.drawDistance ||
+      prevProfile.hardwareAcceleration !== nextProfile.hardwareAcceleration;
 
     if (visualChanged) {
       this.adaptiveTier = 0;
@@ -1081,6 +1083,12 @@ export class ShooterEngine {
         }
       }
     }
+    if (this.renderer.shadowMap.enabled && gfx.hardwareAcceleration && !this.isSoftwareGl) {
+      this.shadowPaceFrame = (this.shadowPaceFrame + 1) % 2;
+      if (this.shadowPaceFrame === 0) {
+        this.renderer.shadowMap.needsUpdate = true;
+      }
+    }
     if (this.usePostProcessing && this.composer) {
       this.composer.render();
     } else {
@@ -1129,6 +1137,10 @@ export class ShooterEngine {
       (gfx.shadowQuality === 'high' || gfx.shadowQuality === 'medium' || !this.isMobileDevice);
     this.renderer.shadowMap.enabled = shadowsOn;
     this.keyLight.castShadow = shadowsOn;
+    this.renderer.shadowMap.autoUpdate = !(shadowsOn && gfx.hardwareAcceleration && !this.isSoftwareGl);
+    if (shadowsOn && gfx.hardwareAcceleration && !this.isSoftwareGl) {
+      this.renderer.shadowMap.needsUpdate = true;
+    }
     const nextShadowType = gfx.shadowQuality === 'high' ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
     if (this.renderer.shadowMap.type !== nextShadowType) {
       this.renderer.shadowMap.type = nextShadowType;
@@ -3170,7 +3182,7 @@ export class ShooterEngine {
   }
 
   private isOpenCockpitVehicle(kind: VehicleKind | null | undefined): boolean {
-    return kind === 'digital_bike' || kind === 'electric_scooter';
+    return kind === 'digital_bike' || kind === 'electric_scooter' || kind === 'future_bike';
   }
 
   private poseRiderOnVehicle(rig: SoldierRig, veh: VehicleActor, steer: number) {
@@ -3200,7 +3212,7 @@ export class ShooterEngine {
       rig.rightArm.rotation.set(0.92 - steer * 0.14, -0.16, 0.12);
       rig.leftElbow.rotation.set(0.28, 0, 0);
       rig.rightElbow.rotation.set(0.28, 0, 0);
-    } else if (veh.kind === 'digital_bike') {
+    } else if (veh.kind === 'digital_bike' || veh.kind === 'future_bike') {
       rig.bodyPivot.rotation.set(0, 0, veh.bikeLean ?? 0);
       rig.pelvisGroup.position.set(0, 0.14, 0.28);
       rig.torso.rotation.set(-0.42, 0, 0);
@@ -4309,18 +4321,19 @@ export class ShooterEngine {
         }
       }
       if (this.arena.shootableScreens && this.arena.displays) {
+        const effScreenRadius = radius + 1.5;
         for (let i = 0; i < this.arena.shootableScreens.length; i++) {
           const scr = this.arena.shootableScreens[i];
           scr.updateWorldMatrix(true, false);
           _screenBox.setFromObject(scr);
           _screenBox.clampPoint(center, _screenClosestPt);
           const distToScr = _screenClosestPt.distanceTo(center);
-          if (distToScr <= radius + 0.8) {
+          if (distToScr <= effScreenRadius) {
             const mat = (scr as THREE.Mesh).material;
             const entry = this.arena.displays.getEntryByMaterial(mat);
             if (entry) {
-              const falloff = Math.max(0.35, 1 - distToScr / (radius + 0.8));
-              const blastDmg = Math.max(48, Math.round(maxDamage * falloff));
+              const falloff = Math.max(0.72, 1 - distToScr / effScreenRadius);
+              const blastDmg = Math.max(60, Math.round(maxDamage * falloff));
               const scrRes = this.arena.displays.hitDisplayEntry(
                 entry,
                 0.35 + Math.random() * 0.3,
@@ -4777,14 +4790,16 @@ export class ShooterEngine {
           soundEngine.playBallBounce(wildDist);
         }
       }
-    } else if (closestScreen && scrDist <= closestEnvDist + 0.3 && scrDist < simDist && scrDist < scDist && scrDist < vehDist && this.arena?.displays) {
+    } else if (closestScreen && scrDist <= closestEnvDist + 1.6 && scrDist < simDist && scrDist < scDist && scrDist < vehDist && this.arena?.displays) {
       _v4.copy(closestScreen.point);
       const mat = (closestScreen.object as THREE.Mesh).material;
       const entry = this.arena.displays.getEntryByMaterial(mat);
       if (entry) {
+        anyHit = true;
         const uv = closestScreen.uv;
         const scrRes = this.arena.displays.hitDisplayEntry(entry, uv ? uv.x : 0.5, uv ? uv.y : 0.5, 28, this.elapsedTime);
         soundEngine.playScreenGlitch(scrRes === 'shattered', scrDist);
+        soundEngine.playHitmarker(false, scrRes === 'shattered');
         if (closestScreen.face) {
           _screenNormal.copy(closestScreen.face.normal).transformDirection(closestScreen.object.matrixWorld).normalize();
         } else {
@@ -5157,14 +5172,16 @@ export class ShooterEngine {
               soundEngine.playBallBounce(wildDist);
             }
           }
-        } else if (closestScreen && scrDist <= closestEnvDist + 0.3 && scrDist < simDist && scrDist < scDist && scrDist < vehDist && this.arena?.displays) {
+        } else if (closestScreen && scrDist <= closestEnvDist + 1.6 && scrDist < simDist && scrDist < scDist && scrDist < vehDist && this.arena?.displays) {
           _v4.copy(closestScreen.point);
           const mat = (closestScreen.object as THREE.Mesh).material;
           const entry = this.arena.displays.getEntryByMaterial(mat);
           if (entry) {
+            anyHit = true;
             const uv = closestScreen.uv;
             const scrRes = this.arena.displays.hitDisplayEntry(entry, uv ? uv.x : 0.5, uv ? uv.y : 0.5, spec.damage, this.elapsedTime);
             soundEngine.playScreenGlitch(scrRes === 'shattered', scrDist);
+            soundEngine.playHitmarker(false, scrRes === 'shattered');
             if (closestScreen.face) {
               _screenNormal.copy(closestScreen.face.normal).transformDirection(closestScreen.object.matrixWorld).normalize();
             } else {
@@ -6463,6 +6480,7 @@ export class ShooterEngine {
         this.elapsedTime,
         this.playerPos,
         this.camera.position,
+        drivenForPortals ? drivenForPortals.position : null,
       );
       this.arena.displays?.updateSpatialAudio(this.camera.position, this.activeVehicleId, this.hudSettings.muted);
       this.vehicleManager.updateDisplaysAudio(this.camera.position, this.activeVehicleId, this.hudSettings.muted);

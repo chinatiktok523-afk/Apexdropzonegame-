@@ -450,6 +450,168 @@ export const VEHICLE_SPECS: Record<VehicleKind, VehicleSpec> = {
     bodyL: 7.4,
     wheelRadius: 0.45,
   },
+  future_sports_car: {
+    kind: 'future_sports_car',
+    name: 'Future Silver Aero Sports Car',
+    maxHp: 880,
+    maxSpeed: 42.5,
+    reverseSpeed: 16.5,
+    accel: 37,
+    turnRate: 2.75,
+    seatHeight: 1.24,
+    camDist: 6.75,
+    camHeight: 2.5,
+    isHelicopter: false,
+    doorStyle: 'scissor',
+    driverSeatOffset: [-0.41, 1.24, 0.08],
+    bodyW: 2.08,
+    bodyL: 4.66,
+    wheelRadius: 0.39,
+  },
+  future_super_car: {
+    kind: 'future_super_car',
+    name: 'Super Future Crimson Hypercar',
+    maxHp: 900,
+    maxSpeed: 45.0,
+    reverseSpeed: 17.5,
+    accel: 40,
+    turnRate: 2.82,
+    seatHeight: 1.22,
+    camDist: 6.8,
+    camHeight: 2.48,
+    isHelicopter: false,
+    doorStyle: 'scissor',
+    driverSeatOffset: [-0.41, 1.22, 0.08],
+    bodyW: 2.1,
+    bodyL: 4.72,
+    wheelRadius: 0.39,
+  },
+  future_suv: {
+    kind: 'future_suv',
+    name: 'Future Tactical White SUV',
+    maxHp: 1180,
+    maxSpeed: 31.5,
+    reverseSpeed: 13.8,
+    accel: 26,
+    turnRate: 2.32,
+    seatHeight: 1.78,
+    camDist: 7.75,
+    camHeight: 3.3,
+    isHelicopter: false,
+    doorStyle: 'swing',
+    driverSeatOffset: [-0.46, 1.58, -0.02],
+    bodyW: 2.14,
+    bodyL: 4.86,
+    wheelRadius: 0.47,
+  },
+  future_bike: {
+    kind: 'future_bike',
+    name: 'Future Neon-Halo Superbike',
+    maxHp: 440,
+    maxSpeed: 29.0,
+    reverseSpeed: 10.5,
+    accel: 40,
+    turnRate: 3.3,
+    seatHeight: 1.06,
+    camDist: 4.1,
+    camHeight: 2.05,
+    isHelicopter: false,
+    doorStyle: 'none',
+    driverSeatOffset: [0, 1.54, 0.2],
+    bodyW: 0.8,
+    bodyL: 2.18,
+    wheelRadius: 0.42,
+  },
+  future_heli: {
+    kind: 'future_heli',
+    name: 'Future Aero White Helicopter',
+    maxHp: 1420,
+    maxSpeed: 46.0,
+    reverseSpeed: 18.0,
+    accel: 26,
+    turnRate: 2.25,
+    seatHeight: 1.52,
+    camDist: 10.2,
+    camHeight: 3.7,
+    isHelicopter: true,
+    doorStyle: 'swing',
+    driverSeatOffset: [0, 1.44, -1.05],
+    bodyW: 2.9,
+    bodyL: 7.1,
+    wheelRadius: 0.45,
+  },
+  future_flying_car: {
+    kind: 'future_flying_car',
+    name: 'Future Thruster Flying Car',
+    maxHp: 960,
+    maxSpeed: 48.0,
+    reverseSpeed: 18.0,
+    accel: 34,
+    turnRate: 2.55,
+    seatHeight: 1.38,
+    camDist: 7.4,
+    camHeight: 2.8,
+    isHelicopter: true,
+    doorStyle: 'gullwing',
+    driverSeatOffset: [-0.41, 1.38, 0.06],
+    bodyW: 2.14,
+    bodyL: 4.74,
+    wheelRadius: 0.39,
+  },
+  future_drone: {
+    kind: 'future_drone',
+    name: 'Future Quad-Tilt Passenger Drone',
+    maxHp: 1120,
+    maxSpeed: 44.0,
+    reverseSpeed: 18.0,
+    accel: 28,
+    turnRate: 2.4,
+    seatHeight: 1.48,
+    camDist: 8.6,
+    camHeight: 3.25,
+    isHelicopter: true,
+    doorStyle: 'gullwing',
+    driverSeatOffset: [0, 1.48, -0.35],
+    bodyW: 4.2,
+    bodyL: 4.8,
+    wheelRadius: 0.35,
+  },
+  future_tank: {
+    kind: 'future_tank',
+    name: 'Future Railgun Stealth Tank',
+    maxHp: 2200,
+    maxSpeed: 24.5,
+    reverseSpeed: 11.5,
+    accel: 20,
+    turnRate: 1.9,
+    seatHeight: 1.65,
+    camDist: 8.8,
+    camHeight: 3.55,
+    isHelicopter: false,
+    doorStyle: 'swing',
+    driverSeatOffset: [0, 1.62, -0.05],
+    bodyW: 3.1,
+    bodyL: 5.8,
+    wheelRadius: 0.44,
+  },
+  koutone_hover: {
+    kind: 'koutone_hover',
+    name: 'Koutone Ice-Blue Hover Coupe',
+    maxHp: 980,
+    maxSpeed: 43.0,
+    reverseSpeed: 16.5,
+    accel: 36,
+    turnRate: 2.68,
+    seatHeight: 1.34,
+    camDist: 6.85,
+    camHeight: 2.62,
+    isHelicopter: false,
+    doorStyle: 'gullwing',
+    driverSeatOffset: [-0.38, 1.34, 0.06],
+    bodyW: 2.04,
+    bodyL: 4.78,
+    wheelRadius: 0.38,
+  },
 };
 
 export interface VehicleGlassPane {
@@ -474,6 +636,8 @@ export interface VehicleActor {
   wobblePhase: number;
   mainRotor: THREE.Object3D | null;
   tailRotor: THREE.Object3D | null;
+  auxRotors?: THREE.Object3D[];
+  hoverThrusters?: THREE.Mesh[];
   turretGroup: THREE.Object3D | null;
   turretMuzzle: THREE.Object3D | null;
   turretFlash: THREE.Mesh | null;
@@ -757,6 +921,7 @@ export function buildDigitalBikeMesh(
   isSoftwareGl: boolean,
   displays?: DigitalDisplayManager | null,
   bikeStyle: BikeStyleId = 'volt_green',
+  isFutureHoloBike = false,
 ): {
   group: THREE.Group;
   wheels: THREE.Mesh[];
@@ -794,15 +959,17 @@ export function buildDigitalBikeMesh(
     });
   };
 
-  const pal = getBikePalette(bikeStyle);
-  const bodyMat = new THREE.MeshStandardMaterial({ color: pal.whiteArmor, roughness: 0.22, metalness: 0.45 });
-  const secondaryMat = new THREE.MeshStandardMaterial({ color: pal.silverArmor, roughness: 0.34, metalness: 0.52 });
-  const trimMat = new THREE.MeshStandardMaterial({ color: pal.neonOrange, roughness: 0.26, metalness: 0.55 });
+  const pal = isFutureHoloBike
+    ? { whiteArmor: 0xf8fafc, silverArmor: 0xcbd5e1, neonOrange: 0x0ea5e9, neonGreen: 0x22d3ee }
+    : getBikePalette(bikeStyle);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: pal.whiteArmor, roughness: 0.18, metalness: 0.48 });
+  const secondaryMat = new THREE.MeshStandardMaterial({ color: pal.silverArmor, roughness: 0.3, metalness: 0.56 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: pal.neonOrange, roughness: 0.22, metalness: 0.62 });
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x161b24, roughness: 0.55, metalness: 0.65 });
   const carbonMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.48, metalness: 0.22 });
   const neonMat = new THREE.MeshBasicMaterial({ color: pal.neonGreen, toneMapped: false });
-  const headlightMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, toneMapped: false });
-  const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444, toneMapped: false });
+  const headlightMat = new THREE.MeshBasicMaterial({ color: isFutureHoloBike ? 0x67e8f9 : 0xe0f2fe, toneMapped: false });
+  const tailMat = new THREE.MeshBasicMaterial({ color: isFutureHoloBike ? 0x22d3ee : 0xef4444, toneMapped: false });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x38bdf8,
     roughness: 0.08,
@@ -816,6 +983,15 @@ export function buildDigitalBikeMesh(
   const wheelSides = [0, 0];
   const frontW = buildRealisticSuperbikeWheel(0.41, 0.26, isSoftwareGl, bikeStyle);
   frontW.wheelGroup.position.set(0, 0.41 - 0.72, -0.22);
+  if (isFutureHoloBike) {
+    const outerHaloGeo = new THREE.TorusGeometry(0.36, 0.022, 8, 26);
+    outerHaloGeo.rotateY(Math.PI / 2);
+    [-0.125, 0.125].forEach((hx) => {
+      const hRing = new THREE.Mesh(outerHaloGeo, neonMat);
+      hRing.position.x = hx;
+      frontW.wheelGroup.add(hRing);
+    });
+  }
   frontW.wheelGroup.traverse((ch) => {
     if (ch instanceof THREE.Mesh && ch.visible) {
       ch.userData.vehicleId = id;
@@ -830,6 +1006,15 @@ export function buildDigitalBikeMesh(
 
   const rearW = buildRealisticSuperbikeWheel(0.43, 0.34, isSoftwareGl, bikeStyle);
   rearW.wheelGroup.position.set(0, 0.43, 0.96);
+  if (isFutureHoloBike) {
+    const rearHaloGeo = new THREE.TorusGeometry(0.38, 0.024, 8, 26);
+    rearHaloGeo.rotateY(Math.PI / 2);
+    [-0.165, 0.165].forEach((hx) => {
+      const hRing = new THREE.Mesh(rearHaloGeo, neonMat);
+      hRing.position.x = hx;
+      rearW.wheelGroup.add(hRing);
+    });
+  }
   rearW.wheelGroup.traverse((ch) => {
     if (ch instanceof THREE.Mesh && ch.visible) {
       ch.userData.vehicleId = id;
@@ -1374,6 +1559,7 @@ function buildDetailedCarInterior(
   displays: DigitalDisplayManager | null | undefined,
   darkMat: THREE.Material,
   steerWheelX = -0.42,
+  futuristic = false,
 ): {
   interiorGroup: THREE.Group;
   dashEntry: AnimatedDisplayEntry | null;
@@ -1382,25 +1568,67 @@ function buildDetailedCarInterior(
   steerPivot: THREE.Group;
 } {
   const interiorGroup = new THREE.Group();
-  const seatMat = new THREE.MeshStandardMaterial({ color: seatColor, roughness: 0.62, metalness: 0.08 });
-  const trimMat = new THREE.MeshStandardMaterial({ color: trimColor, roughness: 0.35, metalness: 0.48 });
-  const gloveMat = new THREE.MeshStandardMaterial({ color: 0x161920, roughness: 0.52, metalness: 0.25 });
+  const effSeatColor = futuristic ? 0xf1f5f9 : seatColor;
+  const effTrimColor = futuristic ? 0x22d3ee : trimColor;
+  const seatMat = new THREE.MeshStandardMaterial({ color: effSeatColor, roughness: futuristic ? 0.38 : 0.62, metalness: 0.08 });
+  const trimMat = new THREE.MeshStandardMaterial({
+    color: effTrimColor,
+    roughness: 0.25,
+    metalness: 0.62,
+    emissive: futuristic ? 0x0891b2 : 0x000000,
+    emissiveIntensity: futuristic ? 0.45 : 0,
+  });
+  const pearlDashMat = futuristic
+    ? new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.24, metalness: 0.35 })
+    : darkMat;
+  const holoCyanGlowMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, toneMapped: false });
+  const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.16, metalness: 0.9 });
+  const gloveMat = new THREE.MeshStandardMaterial({ color: futuristic ? 0xe2e8f0 : 0x161920, roughness: 0.45, metalness: 0.25 });
   const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x1c2028, roughness: 0.72, metalness: 0.08 });
 
-  // Cabin floor & low center tunnel console (never blocks forward sightline)
+  // Cabin floor & center tunnel console (with cyan holographic light tunnel in futuristic cockpit)
   const floor = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.9, 0.07, 1.92), darkMat);
   floor.position.set(0, seatY - 0.16, seatZ - 0.18);
   interiorGroup.add(floor);
 
-  const consoleBox = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 1.42), darkMat);
+  const consoleBox = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 1.42), futuristic ? pearlDashMat : darkMat);
   consoleBox.position.set(0, seatY - 0.02, seatZ - 0.28);
   const consoleTrim = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.03, 1.34), trimMat);
   consoleTrim.position.set(0, seatY + 0.1, seatZ - 0.28);
-  const shifter = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.12, 8), trimMat);
-  shifter.position.set(0, seatY + 0.16, seatZ - 0.34);
-  interiorGroup.add(consoleBox, consoleTrim, shifter);
+  interiorGroup.add(consoleBox, consoleTrim);
 
-  // Dual sculpted sport bucket seats (base + angled backrest + headrest)
+  if (futuristic) {
+    // Illuminated cyan rotary drive controller + dual ambient console strips + brushed chrome pedals
+    const rotaryOuter = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.072, 0.032, 16), chromeMat);
+    rotaryOuter.position.set(0, seatY + 0.125, seatZ - 0.32);
+    const rotaryCore = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.044, 0.038, 16), darkMat);
+    rotaryCore.position.set(0, seatY + 0.13, seatZ - 0.32);
+    const rotaryRing = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.008, 8, 18), holoCyanGlowMat);
+    rotaryRing.rotation.x = Math.PI * 0.5;
+    rotaryRing.position.set(0, seatY + 0.142, seatZ - 0.32);
+    interiorGroup.add(rotaryOuter, rotaryCore, rotaryRing);
+
+    [-0.125, 0.125].forEach((cx) => {
+      const vein = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.018, 1.25), holoCyanGlowMat);
+      vein.position.set(cx, seatY + 0.08, seatZ - 0.3);
+      interiorGroup.add(vein);
+    });
+
+    // Chrome brake + accelerator pedals
+    const brakePedal = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.065, 0.016), chromeMat);
+    brakePedal.position.set(steerWheelX - 0.06, seatY - 0.06, dashZ + 0.14);
+    brakePedal.rotation.x = -0.35;
+    const gasPedal = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.11, 0.016), chromeMat);
+    gasPedal.position.set(steerWheelX + 0.06, seatY - 0.07, dashZ + 0.14);
+    gasPedal.rotation.x = -0.35;
+    interiorGroup.add(brakePedal, gasPedal);
+  } else {
+    const shifter = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.028, 0.12, 8), trimMat);
+    shifter.position.set(0, seatY + 0.16, seatZ - 0.34);
+    interiorGroup.add(shifter);
+  }
+
+  // Dual sculpted sport bucket seats (pearl white quilted leather for futuristic vehicles)
   const seatSpacing = Math.min(0.46, cabinWidth * 0.25);
   [-seatSpacing, seatSpacing].forEach((sx) => {
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.5), seatMat);
@@ -1417,12 +1645,28 @@ function buildDetailedCarInterior(
     interiorGroup.add(base, backrest, headrest, stripe);
   });
 
-  // Low-profile cockpit dashboard cowl + digital gauges + center infotainment tablet
-  const dashBase = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.9, 0.22, 0.42), darkMat);
+  // Low-profile cockpit dashboard cowl + digital gauges + holographic wrap-around hyperscreen
+  const dashBase = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.9, 0.22, 0.42), futuristic ? pearlDashMat : darkMat);
   dashBase.position.set(0, seatY + 0.12, dashZ);
-  const dashUpper = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.86, 0.05, 0.4), trimMat);
+  const dashUpper = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.86, 0.05, 0.4), futuristic ? darkMat : trimMat);
   dashUpper.position.set(0, seatY + 0.24, dashZ - 0.02);
   interiorGroup.add(dashBase, dashUpper);
+
+  if (futuristic) {
+    // Full-width cyan ambient contour bar + glowing circular holographic radar core on center screen
+    const dashLightStrip = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.84, 0.018, 0.02), holoCyanGlowMat);
+    dashLightStrip.position.set(0, seatY + 0.12, dashZ + 0.22);
+    const holoShroud = new THREE.Mesh(new THREE.BoxGeometry(cabinWidth * 0.84, 0.21, 0.032), darkMat);
+    holoShroud.position.set(0, seatY + 0.22, dashZ + 0.19);
+    holoShroud.rotation.x = -0.14;
+    const holoRingOuter = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.008, 8, 24), holoCyanGlowMat);
+    holoRingOuter.position.set(0.14, seatY + 0.22, dashZ + 0.215);
+    holoRingOuter.rotation.x = -0.14;
+    const holoRingInner = new THREE.Mesh(new THREE.TorusGeometry(0.048, 0.006, 8, 20), holoCyanGlowMat);
+    holoRingInner.position.set(0.14, seatY + 0.22, dashZ + 0.216);
+    holoRingInner.rotation.x = -0.14;
+    interiorGroup.add(dashLightStrip, holoShroud, holoRingOuter, holoRingInner);
+  }
 
   let dashEntry: AnimatedDisplayEntry | null = null;
   const secondLcdEntry: AnimatedDisplayEntry | null = null;
@@ -1438,11 +1682,10 @@ function buildDetailedCarInterior(
     clusterFrame.add(clusterPanel);
     interiorGroup.add(clusterFrame);
 
-    // Non-mansion cars get a standard telemetry/nav dash plate (2nd HDR media LCD is exclusive to Luxury Mansion collection)
-    const tabletFrame = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.20, 0.025), darkMat);
+    const tabletFrame = new THREE.Mesh(new THREE.BoxGeometry(futuristic ? 0.56 : 0.40, 0.20, 0.025), darkMat);
     tabletFrame.position.set(Math.min(cabinWidth * 0.16, 0.18), seatY + 0.22, dashZ + 0.22);
-    tabletFrame.rotation.set(-0.12, -0.18, 0);
-    const centerNav = new THREE.Mesh(new THREE.PlaneGeometry(0.37, 0.17), dashMat);
+    tabletFrame.rotation.set(-0.12, futuristic ? -0.06 : -0.18, 0);
+    const centerNav = new THREE.Mesh(new THREE.PlaneGeometry(futuristic ? 0.53 : 0.37, 0.17), dashMat);
     centerNav.position.set(0, 0, 0.015);
     tabletFrame.add(centerNav);
     interiorGroup.add(tabletFrame);
@@ -1458,14 +1701,22 @@ function buildDetailedCarInterior(
   steerPivot.position.set(steerWheelX, seatY + 0.21, dashZ + 0.35);
   steerPivot.rotation.x = -0.34;
 
-  const steerRim = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.022, 8, 20), darkMat);
+  const steerRim = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.022, 8, 22), futuristic ? pearlDashMat : darkMat);
   const steerTopStripe = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.03, 0.03), trimMat);
   steerTopStripe.position.set(0, 0.155, 0);
-  const steerHub = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 10), trimMat);
+  const steerHub = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.052, 0.052, 0.03, 12),
+    futuristic ? pearlDashMat : trimMat,
+  );
   steerHub.rotation.x = Math.PI / 2;
-  const steerSpokeH = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.028, 0.018), darkMat);
-  const steerSpokeV = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.15, 0.018), darkMat);
+  const steerSpokeH = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.028, 0.018), futuristic ? chromeMat : darkMat);
+  const steerSpokeV = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.15, 0.018), futuristic ? chromeMat : darkMat);
   steerSpokeV.position.set(0, -0.075, 0);
+  if (futuristic) {
+    const hubEmblem = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.005, 8, 18), holoCyanGlowMat);
+    hubEmblem.position.set(0, 0, 0.018);
+    steerPivot.add(hubEmblem);
+  }
 
   // Driver gloved hands + forearms gripping 9 & 3 o'clock (move cleanly with steerPivot.rotation.z)
   [-0.155, 0.155].forEach((hx) => {
@@ -1552,6 +1803,8 @@ function buildVehicleMesh(
   glassPanes: VehicleGlassPane[];
   mainRotor: THREE.Object3D | null;
   tailRotor: THREE.Object3D | null;
+  auxRotors?: THREE.Object3D[];
+  hoverThrusters?: THREE.Mesh[];
   turretGroup: THREE.Object3D | null;
   turretMuzzle: THREE.Object3D | null;
   turretFlash: THREE.Mesh | null;
@@ -1589,11 +1842,11 @@ function buildVehicleMesh(
   ) {
     return buildMansionExclusiveVehicleMesh(id, kind, VEHICLE_SPECS[kind], isSoftwareGl, displays);
   }
-  if (kind === 'digital_bike' || kind === 'electric_scooter') {
+  if (kind === 'digital_bike' || kind === 'electric_scooter' || kind === 'future_bike') {
     const twoWheel =
       kind === 'electric_scooter'
         ? buildElectricScooterMesh(id, isSoftwareGl, displays)
-        : buildDigitalBikeMesh(id, isSoftwareGl, displays, bikeStyle);
+        : buildDigitalBikeMesh(id, isSoftwareGl, displays, bikeStyle, kind === 'future_bike');
     return {
       group: twoWheel.group,
       wheels: twoWheel.wheels,
@@ -1603,6 +1856,8 @@ function buildVehicleMesh(
       glassPanes: twoWheel.glassPanes,
       mainRotor: null,
       tailRotor: null,
+      auxRotors: [],
+      hoverThrusters: [],
       turretGroup: null,
       turretMuzzle: null,
       turretFlash: null,
@@ -1620,6 +1875,18 @@ function buildVehicleMesh(
       hitMeshes: twoWheel.hitMeshes,
       crashState: createVehicleCrashState({}),
     };
+  }
+  if (
+    kind === 'future_sports_car' ||
+    kind === 'future_super_car' ||
+    kind === 'future_suv' ||
+    kind === 'future_heli' ||
+    kind === 'future_flying_car' ||
+    kind === 'future_drone' ||
+    kind === 'future_tank' ||
+    kind === 'koutone_hover'
+  ) {
+    return buildFutureCityVehicleMesh(id, kind, VEHICLE_SPECS[kind], isSoftwareGl, displays);
   }
   if (kind === 'apex_heli') {
     const group = new THREE.Group();
@@ -2897,6 +3164,8 @@ function buildVehicleMesh(
     glassPanes,
     mainRotor: null,
     tailRotor: null,
+    auxRotors: [],
+    hoverThrusters: [],
     turretGroup: null,
     turretMuzzle: null,
     turretFlash: null,
@@ -2920,6 +3189,668 @@ function buildVehicleMesh(
       paintMaterial: bodyMat,
       deformParts: hoodRig.deformParts,
     }),
+  };
+}
+
+function createKoutoneBadgeTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = '#6db6d8';
+    ctx.fillRect(0, 0, 256, 64);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 28px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('KOUTONE', 128, 34);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function buildFutureCityVehicleMesh(
+  id: string,
+  kind:
+    | 'future_sports_car'
+    | 'future_super_car'
+    | 'future_suv'
+    | 'future_heli'
+    | 'future_flying_car'
+    | 'future_drone'
+    | 'future_tank'
+    | 'koutone_hover',
+  spec: VehicleSpec,
+  isSoftwareGl: boolean,
+  displays?: DigitalDisplayManager | null,
+) {
+  const group = new THREE.Group();
+  const wheels: THREE.Mesh[] = [];
+  const frontWheelSteerPivots: THREE.Group[] = [];
+  const wheelRadii: number[] = [];
+  const wheelSides: number[] = [];
+  const glassPanes: VehicleGlassPane[] = [];
+  const hitMeshes: THREE.Mesh[] = [];
+  const headlightMeshes: THREE.Mesh[] = [];
+  const taillightMeshes: THREE.Mesh[] = [];
+  const nightGlowBeams: THREE.Mesh[] = [];
+  const auxRotors: THREE.Object3D[] = [];
+  const hoverThrusters: THREE.Mesh[] = [];
+  const doorPivotL = new THREE.Group();
+  const doorPivotR = new THREE.Group();
+  group.add(doorPivotL, doorPivotR);
+
+  const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.42, metalness: 0.72 });
+  const carbonMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.36, metalness: 0.45 });
+  const tireMat = new THREE.MeshStandardMaterial({ color: 0x111419, roughness: 0.85, metalness: 0.08 });
+  const cyanLedMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, toneMapped: false });
+  const whiteLedMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, toneMapped: false });
+  const redTailMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, toneMapped: false });
+  const thrusterGlowMat = new THREE.MeshBasicMaterial({
+    color: 0x38bdf8,
+    transparent: true,
+    opacity: 0.76,
+    toneMapped: false,
+    side: THREE.DoubleSide,
+  });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x7dd3fc,
+    roughness: 0.06,
+    metalness: 0.42,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+
+  const tagHit = (mesh: THREE.Mesh) => {
+    mesh.userData.vehicleId = id;
+    mesh.castShadow = !isSoftwareGl;
+    mesh.receiveShadow = true;
+    hitMeshes.push(mesh);
+  };
+  const registerLight = (mesh: THREE.Mesh, role: 'headlight' | 'taillight') => {
+    mesh.userData.vehicleId = id;
+    mesh.userData.vehiclePart = role;
+    mesh.userData.origMaterial = mesh.material;
+    mesh.userData.lightBroken = false;
+    hitMeshes.push(mesh);
+    if (role === 'headlight') headlightMeshes.push(mesh);
+    else taillightMeshes.push(mesh);
+  };
+  const registerGlass = (mesh: THREE.Mesh) => {
+    const idx = glassPanes.length;
+    mesh.userData.vehicleId = id;
+    mesh.userData.vehiclePart = 'glass';
+    mesh.userData.glassIdx = idx;
+    hitMeshes.push(mesh);
+    glassPanes.push({ mesh, state: 'intact', baseOpacity: 0.32, baseColor: 0x7dd3fc, baseMaterial: glassMat });
+  };
+  const registerWheel = (wMesh: THREE.Mesh, radius: number, sideSign: number) => {
+    const idx = wheels.length;
+    wMesh.traverse((ch) => {
+      if (ch instanceof THREE.Mesh) {
+        ch.userData.vehicleId = id;
+        ch.userData.vehiclePart = 'wheel';
+        ch.userData.wheelIdx = idx;
+        hitMeshes.push(ch);
+      }
+    });
+    wheels.push(wMesh);
+    wheelRadii.push(radius);
+    wheelSides.push(sideSign);
+  };
+
+  // =========================================================================
+  // 1. FUTURE TANK (White/Silver Digital Stealth MBT + Rotating Railgun Turret)
+  // =========================================================================
+  if (kind === 'future_tank') {
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.32, metalness: 0.56 });
+    const slateArmor = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.44, metalness: 0.68 });
+
+    const lowerHull = new THREE.Mesh(
+      createExtrudedProfile(
+        [
+          [-2.65, 0.44],
+          [-2.9, 0.88],
+          [-1.85, 1.32],
+          [2.45, 1.34],
+          [2.85, 0.82],
+          [2.65, 0.44],
+        ],
+        2.15,
+        0.04,
+      ),
+      hullMat,
+    );
+    tagHit(lowerHull);
+    group.add(lowerHull);
+
+    // Side armored track pods with 6 roadwheels & cyan energy rails
+    [-1.28, 1.28].forEach((tx) => {
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.62, 5.25), darkMetal);
+      pod.position.set(tx, 0.48, 0);
+      tagHit(pod);
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.34, 5.15), slateArmor);
+      skirt.position.set(tx, 0.84, 0);
+      tagHit(skirt);
+      const railGlow = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 4.5), cyanLedMat);
+      railGlow.position.set(tx + (tx < 0 ? -0.31 : 0.31), 0.86, 0);
+      group.add(pod, skirt, railGlow);
+
+      for (let w = 0; w < 6; w++) {
+        const wMesh = buildModernAlloyWheel(0.32, 0.44, tireMat, slateArmor, hullMat, isSoftwareGl, 6, true);
+        wMesh.position.set(tx, 0.32, -2.05 + w * 0.82);
+        group.add(wMesh);
+        registerWheel(wMesh, 0.32, tx < 0 ? -1 : 1);
+      }
+    });
+
+    // Nose headlights + rear vents
+    [-0.78, 0.78].forEach((hx) => {
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.1), cyanLedMat);
+      hl.position.set(hx, 0.96, -2.85);
+      registerLight(hl, 'headlight');
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.08, 0.08), redTailMat);
+      tl.position.set(hx, 0.96, 2.8);
+      registerLight(tl, 'taillight');
+      group.add(hl, tl);
+    });
+
+    // Rotating Turret + Long Railgun Barrel + Muzzle + Flash
+    const turretGroup = new THREE.Group();
+    turretGroup.position.set(0, 1.38, 0.05);
+    const turretShell = new THREE.Mesh(
+      createExtrudedProfile(
+        [
+          [-1.35, 0],
+          [-0.95, 0.56],
+          [0.95, 0.58],
+          [1.55, 0.22],
+          [1.45, 0],
+        ],
+        1.78,
+        0.04,
+      ),
+      hullMat,
+    );
+    tagHit(turretShell);
+    const sensorPod = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.24, 0.52), slateArmor);
+    sensorPod.position.set(0.45, 0.68, -0.32);
+    const opticSlit = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.07, 0.06), cyanLedMat);
+    opticSlit.position.set(0.45, 0.68, -0.59);
+    const barrelOuter = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 3.35), slateArmor);
+    barrelOuter.position.set(0, 0.34, -2.35);
+    tagHit(barrelOuter);
+    const barrelGlow = new THREE.Mesh(new THREE.BoxGeometry(0.27, 0.04, 2.85), cyanLedMat);
+    barrelGlow.position.set(0, 0.34, -2.35);
+    const muzzleBrake = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.36), darkMetal);
+    muzzleBrake.position.set(0, 0.34, -4.08);
+    const turretMuzzle = new THREE.Object3D();
+    turretMuzzle.position.set(0, 0.34, -4.32);
+    const turretFlash = new THREE.Mesh(
+      new THREE.ConeGeometry(0.28, 0.85, 8),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, toneMapped: false }),
+    );
+    turretFlash.rotation.x = -Math.PI * 0.5;
+    turretFlash.position.set(0, 0.34, -4.65);
+    turretFlash.visible = false;
+    turretGroup.add(turretShell, sensorPod, opticSlit, barrelOuter, barrelGlow, muzzleBrake, turretMuzzle, turretFlash);
+    group.add(turretGroup);
+
+    return {
+      group,
+      wheels,
+      frontWheelSteerPivots,
+      wheelRadii,
+      wheelSides,
+      glassPanes,
+      mainRotor: null,
+      tailRotor: null,
+      auxRotors,
+      hoverThrusters,
+      turretGroup,
+      turretMuzzle,
+      turretFlash,
+      steerPivot: null,
+      doorPivotL,
+      doorPivotR,
+      doorStyle: 'swing' as VehicleDoorStyle,
+      driverSeatOffset: new THREE.Vector3(...spec.driverSeatOffset),
+      dashEntry: null,
+      nightGlowBeams,
+      nightLightMats: [cyanLedMat, whiteLedMat, redTailMat],
+      headlightMeshes,
+      taillightMeshes,
+      hitMeshes,
+      crashState: createVehicleCrashState({ paintMaterial: hullMat }),
+    };
+  }
+
+  // =========================================================================
+  // 2. FUTURE HELI & FUTURE PASSENGER QUAD-DRONE
+  // =========================================================================
+  if (kind === 'future_heli' || kind === 'future_drone') {
+    const whiteBody = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.42 });
+    const chromeSkid = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.86 });
+
+    // Landing skids seated flush at y = 0
+    [-0.95, 0.95].forEach((sx) => {
+      const skid = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, kind === 'future_drone' ? 2.8 : 3.9, 10), chromeSkid);
+      skid.rotation.x = Math.PI * 0.5;
+      skid.position.set(sx, 0.05, -0.1);
+      tagHit(skid);
+      [-0.75, 0.75].forEach((sz) => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.58, 0.11), darkMetal);
+        leg.position.set(sx * 0.84, 0.34, sz);
+        leg.rotation.z = sx < 0 ? -0.3 : 0.3;
+        group.add(leg);
+      });
+      group.add(skid);
+    });
+
+    if (kind === 'future_heli') {
+      const lowerPod = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.76, 3.65), whiteBody);
+      lowerPod.position.set(0, 0.96, -0.2);
+      tagHit(lowerPod);
+      const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.84, 1.85), glassMat);
+      canopy.position.set(0, 1.46, -1.62);
+      canopy.rotation.x = -0.38;
+      registerGlass(canopy);
+      const topCowling = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.64, 2.55), whiteBody);
+      topCowling.position.set(0, 1.72, 0.28);
+      tagHit(topCowling);
+      const tailBoom = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.32, 3.7, 10), whiteBody);
+      tailBoom.rotation.x = Math.PI * 0.5;
+      tailBoom.position.set(0, 1.48, 3.05);
+      const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.38, 0.78), whiteBody);
+      tailFin.position.set(0, 2.15, 4.72);
+      tailFin.rotation.x = -0.32;
+      const cyanStripe = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.08, 3.4), cyanLedMat);
+      cyanStripe.position.set(0, 0.84, -0.22);
+      const noseLed = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.1, 0.1), cyanLedMat);
+      noseLed.position.set(0, 0.78, -2.1);
+      registerLight(noseLed, 'headlight');
+      group.add(lowerPod, canopy, topCowling, tailBoom, tailFin, cyanStripe, noseLed);
+
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 0.45, 10), darkMetal);
+      mast.position.set(0, 2.24, 0.05);
+      group.add(mast);
+      const mainRotor = new THREE.Group();
+      mainRotor.position.set(0, 2.5, 0.05);
+      for (let b = 0; b < 4; b++) {
+        const bp = new THREE.Group();
+        bp.rotation.y = (b / 4) * Math.PI * 2;
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.036, 4.15), darkMetal);
+        blade.position.set(0, 0, 2.15);
+        const tip = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, 0.42), cyanLedMat);
+        tip.position.set(0, 0, 4.15);
+        bp.add(blade, tip);
+        mainRotor.add(bp);
+      }
+      const tailRotor = new THREE.Group();
+      tailRotor.position.set(0.12, 1.88, 4.78);
+      for (let tb = 0; tb < 4; tb++) {
+        const tbl = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.68, 0.1), cyanLedMat);
+        tbl.rotation.x = tb * Math.PI * 0.25;
+        tailRotor.add(tbl);
+      }
+      group.add(mainRotor, tailRotor);
+
+      const interior = buildDetailedCarInterior(0xf1f5f9, 0x22d3ee, 0.92, -0.85, -1.58, 1.38, displays, darkMetal, 0, true);
+      group.add(interior.interiorGroup);
+
+      return {
+        group,
+        wheels: [],
+        frontWheelSteerPivots: [],
+        wheelRadii: [],
+        wheelSides: [],
+        glassPanes,
+        mainRotor,
+        tailRotor,
+        auxRotors,
+        hoverThrusters,
+        turretGroup: null,
+        turretMuzzle: null,
+        turretFlash: null,
+        steerPivot: interior.steerPivot,
+        doorPivotL,
+        doorPivotR,
+        doorStyle: 'swing' as VehicleDoorStyle,
+        driverSeatOffset: new THREE.Vector3(...spec.driverSeatOffset),
+        dashEntry: interior.dashEntry,
+        nightGlowBeams,
+        nightLightMats: [cyanLedMat, whiteLedMat, redTailMat],
+        headlightMeshes,
+        taillightMeshes,
+        hitMeshes,
+        crashState: createVehicleCrashState({ paintMaterial: whiteBody }),
+      };
+    }
+
+    // Future Quad-Tilt Passenger Drone (4 circular cyan LED ducted fans + white teardrop pod)
+    const cabinShell = new THREE.Mesh(new THREE.BoxGeometry(1.56, 0.94, 3.2), whiteBody);
+    cabinShell.position.set(0, 1.06, 0);
+    tagHit(cabinShell);
+    const canopyDome = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.78, 1.72), glassMat);
+    canopyDome.position.set(0, 1.46, -0.92);
+    canopyDome.rotation.x = -0.32;
+    registerGlass(canopyDome);
+    const droneEye = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.14, 0.1), cyanLedMat);
+    droneEye.position.set(0, 0.94, -1.66);
+    registerLight(droneEye, 'headlight');
+    group.add(cabinShell, canopyDome, droneEye);
+
+    const interior = buildDetailedCarInterior(0xf1f5f9, 0x22d3ee, 0.98, -0.18, -0.94, 1.32, displays, darkMetal, 0, true);
+    group.add(interior.interiorGroup);
+
+    const fanCoords: [number, number][] = [
+      [-1.78, -1.45],
+      [1.78, -1.45],
+      [-1.78, 1.38],
+      [1.78, 1.38],
+    ];
+    fanCoords.forEach(([fx, fz]) => {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 1.65), whiteBody);
+      arm.position.set(fx * 0.56, 1.24, fz * 0.65);
+      arm.rotation.y = Math.atan2(fx, fz);
+      const shroud = new THREE.Mesh(new THREE.TorusGeometry(0.84, 0.09, 10, 24), darkMetal);
+      shroud.rotation.x = Math.PI * 0.5;
+      shroud.position.set(fx, 1.28, fz);
+      const cyanRing = new THREE.Mesh(new THREE.TorusGeometry(0.84, 0.032, 8, 24), cyanLedMat);
+      cyanRing.rotation.x = Math.PI * 0.5;
+      cyanRing.position.set(fx, 1.34, fz);
+      const fanHub = new THREE.Group();
+      fanHub.position.set(fx, 1.28, fz);
+      for (let fb = 0; fb < 4; fb++) {
+        const fBlade = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.028, 1.48), carbonMat);
+        fBlade.rotation.y = (fb / 4) * Math.PI;
+        fanHub.add(fBlade);
+      }
+      auxRotors.push(fanHub);
+      group.add(arm, shroud, cyanRing, fanHub);
+    });
+
+    return {
+      group,
+      wheels: [],
+      frontWheelSteerPivots: [],
+      wheelRadii: [],
+      wheelSides: [],
+      glassPanes,
+      mainRotor: auxRotors[0] ?? null,
+      tailRotor: null,
+      auxRotors,
+      hoverThrusters,
+      turretGroup: null,
+      turretMuzzle: null,
+      turretFlash: null,
+      steerPivot: interior.steerPivot,
+      doorPivotL,
+      doorPivotR,
+      doorStyle: 'gullwing' as VehicleDoorStyle,
+      driverSeatOffset: new THREE.Vector3(...spec.driverSeatOffset),
+      dashEntry: interior.dashEntry,
+      nightGlowBeams,
+      nightLightMats: [cyanLedMat, whiteLedMat, redTailMat],
+      headlightMeshes,
+      taillightMeshes,
+      hitMeshes,
+      crashState: createVehicleCrashState({ paintMaterial: whiteBody }),
+    };
+  }
+
+  // =========================================================================
+  // 3. FUTURE SPORTS CAR, SUPER FUTURE CAR, FUTURE SUV, FLYING CAR, KOUTONE HOVER
+  // =========================================================================
+  const isSuv = kind === 'future_suv';
+  const isFlyingCar = kind === 'future_flying_car';
+  const isKoutone = kind === 'koutone_hover';
+  const isRedSuper = kind === 'future_super_car';
+
+  const bodyHex = isRedSuper
+    ? 0xb91c1c
+    : isKoutone
+      ? 0x79badb
+      : isSuv
+        ? 0xf1f5f9
+        : 0xdbe4ef;
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: bodyHex,
+    roughness: isRedSuper ? 0.14 : isKoutone ? 0.16 : 0.2,
+    metalness: isSuv ? 0.45 : isKoutone ? 0.72 : 0.78,
+  });
+  const rimMat = new THREE.MeshStandardMaterial({
+    color: isRedSuper ? 0x1e293b : 0x334155,
+    roughness: 0.22,
+    metalness: 0.85,
+  });
+  const accentMat = new THREE.MeshStandardMaterial({
+    color: isRedSuper ? 0xef4444 : 0x22d3ee,
+    roughness: 0.2,
+    metalness: 0.7,
+  });
+
+  if (isSuv) {
+    const frontBay = new THREE.Mesh(
+      createExtrudedProfile([[-2.4, 0.46], [-2.4, 1.04], [-0.84, 1.12], [-0.84, 0.46]], 1.98, 0.04),
+      bodyMat,
+    );
+    const rearCargo = new THREE.Mesh(
+      createExtrudedProfile([[0.74, 0.48], [0.74, 1.24], [2.36, 1.22], [2.38, 0.48]], 2.02, 0.04),
+      bodyMat,
+    );
+    const pan = new THREE.Mesh(new THREE.BoxGeometry(1.96, 0.24, 1.7), bodyMat);
+    pan.position.set(0, 0.56, 0);
+    tagHit(frontBay);
+    tagHit(rearCargo);
+    tagHit(pan);
+    group.add(frontBay, rearCargo, pan);
+
+    const roofRack = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.08, 2.38), darkMetal);
+    roofRack.position.set(0, 2.04, 0.44);
+    const roofLed = new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.06, 0.09), cyanLedMat);
+    roofLed.position.set(0, 2.08, -0.76);
+    registerLight(roofLed, 'headlight');
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.08, 2.48), bodyMat);
+    roof.position.set(0, 1.96, 0.42);
+    tagHit(roof);
+    group.add(roof, roofRack, roofLed);
+
+    [-0.86, 0.86].forEach((sx) => {
+      const ap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.84, 0.11), darkMetal);
+      ap.position.set(sx, 1.56, -0.82);
+      ap.rotation.x = 0.24;
+      const cp = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.84, 0.24), darkMetal);
+      cp.position.set(sx, 1.56, 1.78);
+      cp.rotation.x = -0.22;
+      group.add(ap, cp);
+      [-1.5, 1.5].forEach((wz) => {
+        const flare = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.16, 0.96), darkMetal);
+        flare.position.set(sx * 1.24, 0.96, wz);
+        group.add(flare);
+      });
+    });
+
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.78, 0.05), glassMat);
+    windshield.position.set(0, 1.56, -0.82);
+    windshield.rotation.x = 0.24;
+    registerGlass(windshield);
+    const suvRearWin = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.74, 0.05), glassMat);
+    suvRearWin.position.set(0, 1.56, 1.78);
+    suvRearWin.rotation.x = -0.22;
+    registerGlass(suvRearWin);
+    const grilleBar = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.08, 0.09), cyanLedMat);
+    grilleBar.position.set(0, 0.94, -2.42);
+    registerLight(grilleBar, 'headlight');
+    [-0.78, 0.78].forEach((hx) => {
+      const cLamp = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.08), whiteLedMat);
+      cLamp.position.set(hx, 0.92, -2.42);
+      registerLight(cLamp, 'headlight');
+      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.12, 0.07), redTailMat);
+      tl.position.set(hx, 1.04, 2.38);
+      registerLight(tl, 'taillight');
+      group.add(cLamp, tl);
+    });
+    group.add(windshield, suvRearWin, grilleBar);
+  } else {
+    // Low-slung aero wedge chassis (Sports Car / Super Car / Flying Car / Koutone Hover Coupe)
+    const elev = isKoutone ? 0.36 : isFlyingCar ? 0.34 : 0;
+    const frontNose = new THREE.Mesh(
+      createExtrudedProfile([[-2.32, 0.24 + elev], [-2.22, 0.52 + elev], [-0.78, 0.72 + elev], [-0.78, 0.24 + elev]], 1.94, 0.04),
+      bodyMat,
+    );
+    const rearDeck = new THREE.Mesh(
+      createExtrudedProfile([[0.64, 0.26 + elev], [0.64, 0.9 + elev], [2.28, 0.92 + elev], [2.32, 0.32 + elev]], 1.98, 0.04),
+      bodyMat,
+    );
+    const floorPan = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.14, 1.55), isKoutone ? bodyMat : darkMetal);
+    floorPan.position.set(0, 0.28 + elev, -0.06);
+    const splitter = new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.08, 0.44), darkMetal);
+    splitter.position.set(0, 0.22 + elev, -2.28);
+    tagHit(frontNose);
+    tagHit(rearDeck);
+    tagHit(floorPan);
+    tagHit(splitter);
+    group.add(frontNose, rearDeck, floorPan, splitter);
+
+    // Sculpted glasshouse canopy
+    const roofCap = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.07, 1.24), isKoutone ? glassMat : darkMetal);
+    roofCap.position.set(0, 1.48 + elev, 0.06);
+    tagHit(roofCap);
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.74, 0.05), glassMat);
+    windshield.position.set(0, 1.18 + elev, -0.74);
+    windshield.rotation.x = isKoutone ? 0.48 : 0.38;
+    registerGlass(windshield);
+    const rearGlass = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.06, 1.28), glassMat);
+    rearGlass.position.set(0, 1.22 + elev, 1.22);
+    rearGlass.rotation.x = -0.34;
+    registerGlass(rearGlass);
+    group.add(roofCap, windshield, rearGlass);
+
+    // Aggressive Cyber LED headlights & wrap-around tail bar
+    [-0.72, 0.72].forEach((hx) => {
+      const drl = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.07, 0.09), isRedSuper ? whiteLedMat : cyanLedMat);
+      drl.position.set(hx, 0.62 + elev, -2.28);
+      registerLight(drl, 'headlight');
+      group.add(drl);
+    });
+    const tailStrip = new THREE.Mesh(new THREE.BoxGeometry(1.76, 0.07, 0.08), isKoutone ? cyanLedMat : redTailMat);
+    tailStrip.position.set(0, 0.84 + elev, 2.32);
+    registerLight(tailStrip, 'taillight');
+    group.add(tailStrip);
+
+    // Side aero blades / rear wing / Koutone branding
+    const spoilerWing = new THREE.Mesh(new THREE.BoxGeometry(1.94, 0.07, 0.34), isKoutone ? bodyMat : carbonMat);
+    spoilerWing.position.set(0, 1.06 + elev, 2.18);
+    group.add(spoilerWing);
+
+    if (isKoutone) {
+      const kTex = createKoutoneBadgeTexture();
+      const kMat = new THREE.MeshBasicMaterial({ map: kTex });
+      [-0.99, 0.99].forEach((sx) => {
+        const badge = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.22), kMat);
+        badge.position.set(sx, 0.62 + elev, 0.12);
+        badge.rotation.y = sx < 0 ? -Math.PI * 0.5 : Math.PI * 0.5;
+        group.add(badge);
+      });
+    }
+
+    // Thruster Cones for Flying Car & Koutone Hover Coupe
+    if (isFlyingCar || isKoutone) {
+      (
+        [
+          [-0.96, -1.42],
+          [0.96, -1.42],
+          [-0.96, 1.42],
+          [0.96, 1.42],
+        ] as [number, number][]
+      ).forEach(([px, pz]) => {
+        const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.14, 14), darkMetal);
+        pod.position.set(px, 0.28 + elev, pz);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.52, 12), thrusterGlowMat);
+        cone.rotation.x = Math.PI;
+        cone.position.set(px, 0.08 + elev * 0.5, pz);
+        hoverThrusters.push(cone);
+        group.add(pod, cone);
+      });
+    }
+  }
+
+  const elevInt = isKoutone ? 0.36 : isFlyingCar ? 0.34 : 0;
+  const interior = buildDetailedCarInterior(
+    0xf1f5f9,
+    0x22d3ee,
+    (isSuv ? 1.04 : 0.72) + elevInt,
+    isSuv ? 0.04 : 0.08,
+    isSuv ? -0.66 : -0.64,
+    isSuv ? 1.84 : 1.72,
+    displays,
+    darkMetal,
+    spec.driverSeatOffset[0],
+    true,
+  );
+  group.add(interior.interiorGroup);
+
+  if (!isKoutone) {
+    const rad = spec.wheelRadius;
+    const wzOff = isSuv ? 1.48 : 1.44;
+    const wxOff = isSuv ? 1.04 : 1.0;
+    (
+      [
+        [-wxOff, -wzOff],
+        [wxOff, -wzOff],
+        [-wxOff, wzOff],
+        [wxOff, wzOff],
+      ] as [number, number][]
+    ).forEach(([wx, wz]) => {
+      const wMesh = buildModernAlloyWheel(rad, isSuv ? 0.34 : 0.3, tireMat, rimMat, accentMat, isSoftwareGl, 8, !isSuv);
+      const wy = rad + (isFlyingCar ? 0.34 : 0);
+      if (wz < 0) {
+        const pivot = new THREE.Group();
+        pivot.position.set(wx, wy, wz);
+        pivot.add(wMesh);
+        group.add(pivot);
+        frontWheelSteerPivots.push(pivot);
+      } else {
+        wMesh.position.set(wx, wy, wz);
+        group.add(wMesh);
+      }
+      registerWheel(wMesh, rad, wx < 0 ? -1 : 1);
+    });
+  }
+
+  return {
+    group,
+    wheels,
+    frontWheelSteerPivots,
+    wheelRadii,
+    wheelSides,
+    glassPanes,
+    mainRotor: null,
+    tailRotor: null,
+    auxRotors,
+    hoverThrusters,
+    turretGroup: null,
+    turretMuzzle: null,
+    turretFlash: null,
+    steerPivot: interior.steerPivot,
+    doorPivotL,
+    doorPivotR,
+    doorStyle: spec.doorStyle,
+    driverSeatOffset: new THREE.Vector3(...spec.driverSeatOffset),
+    dashEntry: interior.dashEntry,
+    secondLcdEntry: interior.secondLcdEntry,
+    secondLcdMesh: interior.secondLcdMesh,
+    nightGlowBeams,
+    nightLightMats: [cyanLedMat, whiteLedMat, redTailMat],
+    headlightMeshes,
+    taillightMeshes,
+    hitMeshes,
+    crashState: createVehicleCrashState({ paintMaterial: bodyMat }),
   };
 }
 
@@ -3220,6 +4151,8 @@ export class VehicleManager {
       wobblePhase: 0,
       mainRotor: built.mainRotor,
       tailRotor: built.tailRotor,
+      auxRotors: built.auxRotors ?? [],
+      hoverThrusters: built.hoverThrusters ?? [],
       turretGroup: built.turretGroup,
       turretMuzzle: built.turretMuzzle,
       turretFlash: built.turretFlash,
@@ -3464,7 +4397,7 @@ export class VehicleManager {
     worldInwardDir: THREE.Vector3,
     impactSpeedMs: number,
   ): CrashImpactSummary | null {
-    if (vehicle.destroyed || vehicle.kind === 'digital_bike' || vehicle.kind === 'electric_scooter') return null;
+    if (vehicle.destroyed || vehicle.kind === 'digital_bike' || vehicle.kind === 'electric_scooter' || vehicle.kind === 'future_bike') return null;
     _scratchVelWorld.set(
       -Math.sin(vehicle.yaw) * vehicle.speed,
       0,
@@ -3592,6 +4525,18 @@ export class VehicleManager {
       vehicle.roll = THREE.MathUtils.lerp(vehicle.roll, targetRoll, Math.min(1, dt * 6));
 
       if (vehicle.mainRotor) vehicle.mainRotor.rotation.y += dt * (4 + vehicle.mansionState.rotorRpm * 24);
+      if (vehicle.auxRotors && vehicle.auxRotors.length > 0) {
+        const spin = dt * (5 + vehicle.mansionState.rotorRpm * 26);
+        for (let ai = 0; ai < vehicle.auxRotors.length; ai++) {
+          vehicle.auxRotors[ai].rotation.y += ai % 2 === 0 ? spin : -spin;
+        }
+      }
+      if (vehicle.hoverThrusters && vehicle.hoverThrusters.length > 0) {
+        const pulse = 0.85 + Math.sin((elapsedSec ?? 0) * 18) * 0.25;
+        for (let ti = 0; ti < vehicle.hoverThrusters.length; ti++) {
+          vehicle.hoverThrusters[ti].scale.set(1, pulse, 1);
+        }
+      }
       if (vehicle.tailRotor) vehicle.tailRotor.rotation.x += dt * (5 + vehicle.mansionState.rotorRpm * 28);
 
       vehicle.group.position.copy(vehicle.position);
@@ -3655,8 +4600,8 @@ export class VehicleManager {
 
     let finalX = nextX;
     let finalZ = nextZ;
-    const isTwoWheeler = vehicle.kind === 'digital_bike' || vehicle.kind === 'electric_scooter';
-    const radius = vehicle.kind === 'electric_scooter' ? 0.55 : vehicle.kind === 'digital_bike' ? 0.85 : Math.max(1.38, spec.bodyW * 0.74);
+    const isTwoWheeler = vehicle.kind === 'digital_bike' || vehicle.kind === 'electric_scooter' || vehicle.kind === 'future_bike';
+    const radius = vehicle.kind === 'electric_scooter' ? 0.55 : (vehicle.kind === 'digital_bike' || vehicle.kind === 'future_bike') ? 0.85 : Math.max(1.38, spec.bodyW * 0.74);
     const curGy = groundHeightAt(finalX, finalZ, vehicle.position.y);
     let hitNormalX = -fwdX;
     let hitNormalZ = -fwdZ;
@@ -3802,7 +4747,19 @@ export class VehicleManager {
       vehicle.dashEntry.maxHpValue = vehicle.maxHp;
     }
 
-    const wheelSpinMul = vehicle.kind === 'electric_scooter' ? 4.4 : vehicle.kind === 'digital_bike' ? 2.4 : 2.2;
+    if (vehicle.hoverThrusters && vehicle.hoverThrusters.length > 0) {
+      const pulse = 0.85 + Math.sin((elapsedSec ?? 0) * 18) * 0.22;
+      for (let ti = 0; ti < vehicle.hoverThrusters.length; ti++) {
+        vehicle.hoverThrusters[ti].scale.set(1, pulse, 1);
+      }
+    }
+
+    const wheelSpinMul =
+      vehicle.kind === 'electric_scooter'
+        ? 4.4
+        : vehicle.kind === 'digital_bike' || vehicle.kind === 'future_bike'
+          ? 2.4
+          : 2.2;
     for (let wi = 0; wi < vehicle.wheels.length; wi++) {
       vehicle.wheels[wi].rotation.x -= vehicle.speed * dt * wheelSpinMul;
     }
@@ -3963,6 +4920,12 @@ export class VehicleManager {
         if (v.mainRotor && v.mansionState.rotorRpm > 0.01) {
           v.mainRotor.rotation.y += dt * v.mansionState.rotorRpm * 24;
         }
+        if (v.auxRotors && v.auxRotors.length > 0 && v.mansionState.rotorRpm > 0.01) {
+          const spin = dt * v.mansionState.rotorRpm * 26;
+          for (let ai = 0; ai < v.auxRotors.length; ai++) {
+            v.auxRotors[ai].rotation.y += ai % 2 === 0 ? spin : -spin;
+          }
+        }
         if (v.tailRotor && v.mansionState.rotorRpm > 0.01) {
           v.tailRotor.rotation.x += dt * v.mansionState.rotorRpm * 28;
         }
@@ -3985,7 +4948,7 @@ export class VehicleManager {
       }
 
       stepMansionVisualMechanisms(v, dt, elapsedSec);
-      if ((v.kind === 'digital_bike' || v.kind === 'electric_scooter') && v.leanGroup && !v.driverId) {
+      if ((v.kind === 'digital_bike' || v.kind === 'electric_scooter' || v.kind === 'future_bike') && v.leanGroup && !v.driverId) {
         const targetLean = v.kind === 'electric_scooter' ? 0.02 : Math.abs(v.speed) > 1.0 ? 0.04 : 0.08;
         v.leanGroup.rotation.z = THREE.MathUtils.lerp(v.leanGroup.rotation.z, targetLean, Math.min(1, dt * 4));
       }
@@ -4093,7 +5056,7 @@ export class VehicleManager {
         nearbyVehicleName: null,
         nearbyVehicleKind: null,
         nearbyHijackVehicle: null,
-        hasMountedGun: false,
+        hasMountedGun: Boolean(activeVehicle.turretGroup),
         mansion: ms.isMansionExclusive
           ? {
               nearbyRemote: null,

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import type { DigitalDisplayManager } from './digitalDisplays';
+import { SCIENCE_DOME_VIDEO_PLAYLISTS } from './scienceDistrictSystems';
 
 export interface ScienceExhibitAnimEntry {
   zoneKey: 'plaza' | 'future_lab' | 'science_museum' | `dome_${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
@@ -244,6 +246,325 @@ export function createEarthGlobeTexture(): THREE.CanvasTexture {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
+}
+
+/**
+ * Procedural matte dark hexagonal cell armor texture with glowing crimson-red recessed seams
+ * matching the Future City perimeter wall reference.
+ */
+export function createHexRedPerimeterWallMaterial(
+  isReducedQ: boolean,
+  texturesOut: THREE.Texture[],
+): THREE.MeshStandardMaterial {
+  const w = 512;
+  const h = 512;
+  const diffCanvas = document.createElement('canvas');
+  diffCanvas.width = w;
+  diffCanvas.height = h;
+  const dCtx = diffCanvas.getContext('2d');
+
+  const emCanvas = document.createElement('canvas');
+  emCanvas.width = w;
+  emCanvas.height = h;
+  const eCtx = emCanvas.getContext('2d');
+
+  if (dCtx && eCtx) {
+    dCtx.fillStyle = '#dc2626';
+    dCtx.fillRect(0, 0, w, h);
+    eCtx.fillStyle = '#ef4444';
+    eCtx.fillRect(0, 0, w, h);
+
+    const r = 46;
+    const dx = r * 1.58;
+    const dy = r * Math.sqrt(3) * 0.56;
+    const rows = Math.ceil(h / dy) + 3;
+    const cols = Math.ceil(w / dx) + 3;
+
+    const drawHexTile = (
+      ctx: CanvasRenderingContext2D,
+      cx: number,
+      cy: number,
+      rad: number,
+      fill: string | CanvasGradient,
+      stroke?: string,
+    ) => {
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const ang = (Math.PI / 3) * k;
+        const px = cx + Math.cos(ang) * rad;
+        const py = cy + Math.sin(ang) * rad;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    };
+
+    for (let c = -1; c < cols; c++) {
+      for (let row = -1; row < rows; row++) {
+        const cx = c * dx;
+        const cy = row * (dy * 1.85) + (c % 2 === 0 ? 0 : dy * 0.925);
+        const grad = dCtx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+        grad.addColorStop(0, '#272a30');
+        grad.addColorStop(0.55, '#191b20');
+        grad.addColorStop(1, '#101216');
+        drawHexTile(dCtx, cx, cy, r * 0.87, grad, '#33373f');
+        drawHexTile(eCtx, cx, cy, r * 0.86, '#050203');
+      }
+    }
+  }
+
+  const diffTex = new THREE.CanvasTexture(diffCanvas);
+  diffTex.colorSpace = THREE.SRGBColorSpace;
+  diffTex.wrapS = THREE.RepeatWrapping;
+  diffTex.wrapT = THREE.RepeatWrapping;
+  diffTex.repeat.set(6, 2);
+
+  const emTex = new THREE.CanvasTexture(emCanvas);
+  emTex.colorSpace = THREE.SRGBColorSpace;
+  emTex.wrapS = THREE.RepeatWrapping;
+  emTex.wrapT = THREE.RepeatWrapping;
+  emTex.repeat.set(6, 2);
+
+  texturesOut.push(diffTex, emTex);
+  if (isReducedQ) {
+    return new THREE.MeshLambertMaterial({
+      map: diffTex,
+      emissive: 0xef4444,
+      emissiveMap: emTex,
+      emissiveIntensity: 1.15,
+    }) as unknown as THREE.MeshStandardMaterial;
+  }
+  return new THREE.MeshStandardMaterial({
+    map: diffTex,
+    emissive: 0xff2a2a,
+    emissiveMap: emTex,
+    emissiveIntensity: 1.35,
+    roughness: 0.42,
+    metalness: 0.35,
+  });
+}
+
+/**
+ * Generates the 3 futuristic cyber interior wall materials matching the user's reference photos:
+ * 1) Origami White Polygonal Facets + Cyan Neon Seams
+ * 2) Cool-Grey Layered AI Panel Wall + Glowing Cyan Channels
+ * 3) Dark Charcoal Wall + Vertical & 45-Degree Branching Electric-Blue LED Circuits
+ */
+export function createCyberInteriorWallMaterials(
+  isReducedQ: boolean,
+  texturesOut: THREE.Texture[],
+): {
+  origamiWhiteMat: THREE.Material;
+  cyberGreyAiMat: THREE.Material;
+  darkCircuitBlueMat: THREE.Material;
+} {
+  const mkRepeatedPair = (
+    draw: (dCtx: CanvasRenderingContext2D, eCtx: CanvasRenderingContext2D, w: number, h: number) => void,
+    rx: number,
+    ry: number,
+    rough: number,
+    metal: number,
+    emHex: number,
+    emInt: number,
+  ): THREE.Material => {
+    const w = 512;
+    const h = 512;
+    const dc = document.createElement('canvas');
+    dc.width = w;
+    dc.height = h;
+    const ec = document.createElement('canvas');
+    ec.width = w;
+    ec.height = h;
+    const dCtx = dc.getContext('2d');
+    const eCtx = ec.getContext('2d');
+    if (dCtx && eCtx) draw(dCtx, eCtx, w, h);
+
+    const dTex = new THREE.CanvasTexture(dc);
+    dTex.colorSpace = THREE.SRGBColorSpace;
+    dTex.wrapS = THREE.RepeatWrapping;
+    dTex.wrapT = THREE.RepeatWrapping;
+    dTex.repeat.set(rx, ry);
+
+    const eTex = new THREE.CanvasTexture(ec);
+    eTex.colorSpace = THREE.SRGBColorSpace;
+    eTex.wrapS = THREE.RepeatWrapping;
+    eTex.wrapT = THREE.RepeatWrapping;
+    eTex.repeat.set(rx, ry);
+    texturesOut.push(dTex, eTex);
+
+    if (isReducedQ) {
+      return new THREE.MeshLambertMaterial({
+        map: dTex,
+        emissive: emHex,
+        emissiveMap: eTex,
+        emissiveIntensity: emInt,
+      });
+    }
+    return new THREE.MeshStandardMaterial({
+      map: dTex,
+      emissive: emHex,
+      emissiveMap: eTex,
+      emissiveIntensity: emInt,
+      roughness: rough,
+      metalness: metal,
+    });
+  };
+
+  // 1) White Origami Facets + Cyan Neon Seams
+  const origamiWhiteMat = mkRepeatedPair(
+    (dCtx, eCtx, w, h) => {
+      const tris: Array<[number[], string]> = [
+        [[0, 0, 260, 0, 145, 220], '#f8fafc'],
+        [[260, 0, 512, 0, 380, 185], '#eef4fa'],
+        [[260, 0, 380, 185, 145, 220], '#e2ecf6'],
+        [[0, 0, 145, 220, 0, 360], '#eef2f7'],
+        [[145, 220, 380, 185, 290, 390], '#ffffff'],
+        [[380, 185, 512, 0, 512, 310], '#e5eef8'],
+        [[380, 185, 512, 310, 290, 390], '#f1f5f9'],
+        [[0, 360, 145, 220, 180, 512], '#f8fafc'],
+        [[145, 220, 290, 390, 180, 512], '#dce8f5'],
+        [[290, 390, 512, 310, 512, 512], '#f1f6fb'],
+        [[290, 390, 512, 512, 180, 512], '#e8f0f9'],
+        [[0, 360, 180, 512, 0, 512], '#e2e8f0'],
+      ];
+      eCtx.fillStyle = '#000000';
+      eCtx.fillRect(0, 0, w, h);
+      tris.forEach(([pts, col]) => {
+        dCtx.beginPath();
+        dCtx.moveTo(pts[0], pts[1]);
+        dCtx.lineTo(pts[2], pts[3]);
+        dCtx.lineTo(pts[4], pts[5]);
+        dCtx.closePath();
+        dCtx.fillStyle = col;
+        dCtx.fill();
+        dCtx.strokeStyle = '#67e8f9';
+        dCtx.lineWidth = 4;
+        dCtx.stroke();
+
+        eCtx.beginPath();
+        eCtx.moveTo(pts[0], pts[1]);
+        eCtx.lineTo(pts[2], pts[3]);
+        eCtx.lineTo(pts[4], pts[5]);
+        eCtx.closePath();
+        eCtx.strokeStyle = '#22d3ee';
+        eCtx.lineWidth = 4;
+        eCtx.stroke();
+      });
+    },
+    3,
+    2,
+    0.26,
+    0.12,
+    0x22d3ee,
+    1.15,
+  );
+
+  // 2) Cool-Grey Layered Diagonal Cyber AI Panels
+  const cyberGreyAiMat = mkRepeatedPair(
+    (dCtx, eCtx, w, h) => {
+      dCtx.fillStyle = '#475569';
+      dCtx.fillRect(0, 0, w, h);
+      eCtx.fillStyle = '#000000';
+      eCtx.fillRect(0, 0, w, h);
+
+      const plates = [
+        [0, 36, 220, 36, 300, 185, 0, 185, '#64748b'],
+        [240, 0, 512, 0, 512, 150, 315, 150, '#526277'],
+        [170, 195, 512, 195, 512, 390, 90, 390, '#64748b'],
+        [0, 310, 290, 310, 365, 512, 0, 512, '#56677c'],
+      ] as const;
+      plates.forEach(([x1, y1, x2, y2, x3, y3, x4, y4, col]) => {
+        dCtx.beginPath();
+        dCtx.moveTo(x1, y1);
+        dCtx.lineTo(x2, y2);
+        dCtx.lineTo(x3, y3);
+        dCtx.lineTo(x4, y4);
+        dCtx.closePath();
+        dCtx.fillStyle = col;
+        dCtx.fill();
+        dCtx.strokeStyle = '#38bdf8';
+        dCtx.lineWidth = 5;
+        dCtx.stroke();
+
+        eCtx.beginPath();
+        eCtx.moveTo(x1, y1);
+        eCtx.lineTo(x2, y2);
+        eCtx.lineTo(x3, y3);
+        eCtx.lineTo(x4, y4);
+        eCtx.closePath();
+        eCtx.strokeStyle = '#38bdf8';
+        eCtx.lineWidth = 5;
+        eCtx.stroke();
+      });
+
+      // Subtle holographic AI reticle accent
+      dCtx.strokeStyle = 'rgba(103, 232, 249, 0.45)';
+      dCtx.lineWidth = 3;
+      dCtx.beginPath();
+      dCtx.arc(w * 0.56, h * 0.54, 48, 0, Math.PI * 2);
+      dCtx.stroke();
+      eCtx.strokeStyle = '#0ea5e9';
+      eCtx.lineWidth = 3;
+      eCtx.beginPath();
+      eCtx.arc(w * 0.56, h * 0.54, 48, 0, Math.PI * 2);
+      eCtx.stroke();
+    },
+    3,
+    1.5,
+    0.34,
+    0.24,
+    0x38bdf8,
+    1.25,
+  );
+
+  // 3) Dark Charcoal Wall + Vertical & Angled Electric-Blue LED Traces
+  const darkCircuitBlueMat = mkRepeatedPair(
+    (dCtx, eCtx, w, h) => {
+      dCtx.fillStyle = '#2c3037';
+      dCtx.fillRect(0, 0, w, h);
+      eCtx.fillStyle = '#000000';
+      eCtx.fillRect(0, 0, w, h);
+
+      const traces: Array<Array<[number, number]>> = [
+        [[46, 0], [46, 130], [98, 175], [98, 415], [142, 455], [142, 512]],
+        [[118, 0], [118, 512]],
+        [[198, 0], [198, 145], [248, 185], [248, 340], [196, 385], [196, 512]],
+        [[308, 0], [308, 225], [260, 268], [260, 512]],
+        [[374, 0], [374, 188], [430, 238], [430, 512]],
+        [[458, 0], [458, 135], [492, 168], [492, 512]],
+      ];
+
+      traces.forEach((pts) => {
+        [dCtx, eCtx].forEach((c) => {
+          c.strokeStyle = '#00d8ff';
+          c.lineWidth = 6;
+          c.lineCap = 'round';
+          c.lineJoin = 'round';
+          c.beginPath();
+          pts.forEach(([px, py], i) => {
+            if (i === 0) c.moveTo(px, py);
+            else c.lineTo(px, py);
+          });
+          c.stroke();
+        });
+      });
+    },
+    4,
+    1.5,
+    0.45,
+    0.18,
+    0x00d8ff,
+    1.45,
+  );
+
+  return { origamiWhiteMat, cyberGreyAiMat, darkCircuitBlueMat };
 }
 
 /** Builds the Holographic Human + 6-Axis Articulated Robotic Arm visible inside Future Lab glass atrium. */
@@ -647,331 +968,114 @@ function buildFutureVehicleExhibition(
   });
 }
 
-/** Populates distinct interior 3D animations for each of the 8 Individual Glass Domes. */
+/**
+ * Populates each of the 8 Glass Domes with 3D Holographic Curved Cinema & Wing Screens
+ * playing its dedicated attached .mp4 animation cleanly inside the dome.
+ */
 export function populateDomeExhibits(
   domeIndex: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8,
   interiorGroup: THREE.Group,
   bank: ScienceExhibitMaterialBank,
   anims: ScienceExhibitAnimEntry[],
+  displays?: DigitalDisplayManager,
+  domeInfo?: { title: string; shortTitle: string; accentHex: string; accentNum: number; x: number; z: number },
 ) {
   const zoneKey = `dome_${domeIndex}` as const;
   const geoBox = new THREE.BoxGeometry(1, 1, 1);
-  const geoCyl = new THREE.CylinderGeometry(0.4, 0.4, 1, 14);
-  const geoCone = new THREE.ConeGeometry(0.45, 1.4, 12);
-  const geoSphere = new THREE.SphereGeometry(0.8, 16, 12);
-  const geoTorus = new THREE.TorusGeometry(1.1, 0.08, 8, 28);
-  bank.sharedGeos.push(geoBox, geoCyl, geoCone, geoSphere, geoTorus);
-
-  // Central illuminated pedestal inside every dome
-  const ped = new THREE.Mesh(geoCyl, bank.slateMetal);
-  ped.position.set(0, 0.22, 0);
-  ped.scale.set(5.5, 0.44, 5.5);
-  const pedRing = new THREE.Mesh(geoTorus, bank.cyanGlow);
-  pedRing.rotation.x = Math.PI * 0.5;
-  pedRing.position.set(0, 0.46, 0);
-  pedRing.scale.setScalar(2.0);
-  interiorGroup.add(ped, pedRing);
-
-  if (domeIndex === 1) {
-    // DOME 1 — SPACE EXPLORATION: Rocket launch demo, astronaut, space station, orbiting planets
-    const rocket = new THREE.Group();
-    const hull = new THREE.Mesh(geoCyl, bank.whiteMetal);
-    hull.position.y = 2.6;
-    hull.scale.set(1.25, 3.8, 1.25);
-    const nose = new THREE.Mesh(geoCone, bank.crimsonPaint);
-    nose.position.y = 5.1;
-    nose.scale.set(1.12, 1.1, 1.12);
-    const flame = new THREE.Mesh(geoCone, bank.amberGlow);
-    flame.rotation.x = Math.PI;
-    flame.position.y = 0.2;
-    flame.scale.set(0.85, 0.95, 0.85);
-    rocket.add(hull, nose, flame);
-    interiorGroup.add(rocket);
-
-    // Astronaut statue beside launchpad
-    const astro = new THREE.Group();
-    astro.position.set(-3.2, 0.9, 1.5);
-    const suit = new THREE.Mesh(geoBox, bank.whiteMetal);
-    suit.scale.set(0.68, 1.15, 0.48);
-    const helm = new THREE.Mesh(geoSphere, bank.goldMetal);
-    helm.position.y = 0.82;
-    helm.scale.setScalar(0.42);
-    astro.add(suit, helm);
-    interiorGroup.add(astro);
-
-    // Orbiting ringed planet + satellite
-    const orrery = new THREE.Group();
-    orrery.position.set(0, 5.4, 0);
-    const planet = new THREE.Mesh(geoSphere, bank.goldMetal);
-    planet.position.set(3.4, 0, 0);
-    planet.scale.setScalar(0.82);
-    const pRing = new THREE.Mesh(geoTorus, bank.cyanGlow);
-    pRing.rotation.x = 1.15;
-    pRing.scale.setScalar(0.88);
-    planet.add(pRing);
-    const sat = new THREE.Mesh(geoBox, bank.silverPaint);
-    sat.position.set(-3.6, 0.6, 0);
-    sat.scale.set(1.1, 0.32, 0.38);
-    orrery.add(planet, sat);
-    interiorGroup.add(orrery);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.2 : 1.0;
-        rocket.position.y = 0.45 + Math.abs(Math.sin(t * 0.75 * spd)) * 1.45;
-        flame.scale.y = 0.7 + Math.sin(t * 14) * 0.28;
-        orrery.rotation.y = t * 0.85 * spd;
-        planet.rotation.y = t * 1.4 * spd;
-      },
-    });
-  } else if (domeIndex === 2) {
-    // DOME 2 — ROBOTICS: Walking humanoid robot + dual sweeping assembly arms + AI holo core
-    const walker = new THREE.Group();
-    const wTorso = new THREE.Mesh(geoBox, bank.whiteMetal);
-    wTorso.position.y = 1.4;
-    wTorso.scale.set(0.66, 0.82, 0.42);
-    const wHead = new THREE.Mesh(geoBox, bank.cyanGlow);
-    wHead.position.y = 2.04;
-    wHead.scale.set(0.36, 0.34, 0.36);
-    const legL = new THREE.Mesh(geoBox, bank.slateMetal);
-    legL.position.set(-0.18, 0.55, 0);
-    legL.scale.set(0.22, 0.85, 0.24);
-    const legR = new THREE.Mesh(geoBox, bank.slateMetal);
-    legR.position.set(0.18, 0.55, 0);
-    legR.scale.set(0.22, 0.85, 0.24);
-    walker.add(wTorso, wHead, legL, legR);
-    interiorGroup.add(walker);
-
-    const arms: THREE.Group[] = [];
-    [-3.1, 3.1].forEach((ax) => {
-      const arm = new THREE.Group();
-      arm.position.set(ax, 0.45, -1.6);
-      const col = new THREE.Mesh(geoCyl, bank.whiteMetal);
-      col.position.y = 1.25;
-      col.scale.set(0.75, 2.5, 0.75);
-      const boom = new THREE.Mesh(geoBox, bank.goldMetal);
-      boom.position.set(ax < 0 ? 0.9 : -0.9, 2.45, 0);
-      boom.scale.set(1.85, 0.32, 0.34);
-      arm.add(col, boom);
-      arms.push(arm);
-      interiorGroup.add(arm);
-    });
-
-    const aiCore = new THREE.Mesh(geoTorus, bank.cyanGlow);
-    aiCore.position.set(0, 2.8, 0);
-    interiorGroup.add(aiCore);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.1 : 1.0;
-        const ang = t * 0.9 * spd;
-        walker.position.set(Math.cos(ang) * 2.4, 0.42, Math.sin(ang) * 2.4);
-        walker.rotation.y = -ang;
-        legL.rotation.x = Math.sin(t * 5.2 * spd) * 0.45;
-        legR.rotation.x = -Math.sin(t * 5.2 * spd) * 0.45;
-        aiCore.rotation.x = t * 1.2 * spd;
-        aiCore.rotation.y = t * 1.7 * spd;
-        arms[0].rotation.y = Math.sin(t * 1.3 * spd) * 0.85;
-        arms[1].rotation.y = -Math.sin(t * 1.3 * spd) * 0.85;
-      },
-    });
-  } else if (domeIndex === 3) {
-    // DOME 3 — DINOSAUR WORLD: Walking articulated T-Rex + Triceratops + ferns
-    const trex = buildAnimatedDino(bank, bank.dinoGreen, 1.35, false);
-    trex.root.position.set(-0.6, 0.42, -0.4);
-    interiorGroup.add(trex.root);
-
-    const trike = buildAnimatedDino(bank, bank.goldMetal, 0.72, true);
-    trike.root.position.set(3.2, 0.42, 1.6);
-    trike.root.rotation.y = -0.8;
-    interiorGroup.add(trike.root);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.0 : 1.0;
-        trex.headPivot.rotation.y = Math.sin(t * 1.1 * spd) * 0.35;
-        trex.headPivot.rotation.x = Math.sin(t * 1.8 * spd) * 0.14;
-        trex.jawPivot.rotation.x = (Math.sin(t * 2.6 * spd) * 0.5 + 0.5) * 0.38;
-        trex.tailPivot.rotation.y = Math.sin(t * 1.9 * spd) * 0.32;
-        trex.legL.rotation.x = Math.sin(t * 2.2 * spd) * 0.25;
-        trex.legR.rotation.x = -Math.sin(t * 2.2 * spd) * 0.25;
-        trike.headPivot.rotation.y = Math.cos(t * 1.3 * spd) * 0.25;
-      },
-    });
-  } else if (domeIndex === 4) {
-    // DOME 4 — ANCIENT CIVILIZATION: Revolving Golden Sentinel Statue + Stepped Ziggurat + Holo Ring
-    const stage = new THREE.Group();
-    stage.position.set(0, 0.45, 0);
-    for (let s = 0; s < 3; s++) {
-      const step = new THREE.Mesh(geoBox, bank.boneFossil);
-      step.position.y = 0.22 + s * 0.38;
-      step.scale.set(3.6 - s * 0.85, 0.36, 3.6 - s * 0.85);
-      stage.add(step);
+  const geoCyl = new THREE.CylinderGeometry(0.4, 0.4, 1, 16);
+  const geoSphere = new THREE.SphereGeometry(0.45, 14, 10);
+  const geoTorus = new THREE.TorusGeometry(1.1, 0.06, 8, 28);
+  // Curved panoramic projection wall facing South (+Z entrance) around north side (-Z)
+  const screenGeo = new THREE.CylinderGeometry(4.45, 4.45, 4.35, 28, 1, true, Math.PI * 0.62, Math.PI * 0.76);
+  // Flip UV horizontally so inner curved screen reads cleanly left-to-right from entrance
+  const uvAttr = screenGeo.getAttribute('uv');
+  if (uvAttr) {
+    for (let i = 0; i < uvAttr.count; i++) {
+      uvAttr.setX(i, 1 - uvAttr.getX(i));
     }
-    const statueBody = new THREE.Mesh(geoCyl, bank.goldMetal);
-    statueBody.position.y = 2.45;
-    statueBody.scale.set(1.5, 2.2, 1.2);
-    const statueHead = new THREE.Mesh(geoBox, bank.goldMetal);
-    statueHead.position.y = 3.85;
-    statueHead.scale.set(0.75, 0.85, 0.72);
-    const holoScript = new THREE.Mesh(geoTorus, bank.amberGlow);
-    holoScript.rotation.x = Math.PI * 0.5;
-    holoScript.position.y = 2.55;
-    holoScript.scale.setScalar(1.65);
-    stage.add(statueBody, statueHead, holoScript);
-    interiorGroup.add(stage);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.2 : 1.0;
-        stage.rotation.y = t * 0.42 * spd;
-        holoScript.position.y = 2.55 + Math.sin(t * 1.8) * 0.35;
-      },
-    });
-  } else if (domeIndex === 5) {
-    // DOME 5 — CRYSTAL & ENERGY: Levitating Giant Crystals + Plasma Containment Rings + Energy Beam
-    const mainCrystal = new THREE.Mesh(geoCone, bank.crystalCyan);
-    mainCrystal.position.set(0, 2.9, 0);
-    mainCrystal.scale.set(2.1, 2.6, 2.1);
-    const subCrystals: THREE.Mesh[] = [];
-    for (let i = 0; i < 4; i++) {
-      const ang = (i / 4) * Math.PI * 2;
-      const sc = new THREE.Mesh(geoCone, bank.crystalPurple);
-      sc.position.set(Math.cos(ang) * 2.8, 1.75, Math.sin(ang) * 2.8);
-      sc.scale.set(1.1, 1.5, 1.1);
-      subCrystals.push(sc);
-      interiorGroup.add(sc);
-    }
-    const fluxRing = new THREE.Mesh(geoTorus, bank.cyanGlow);
-    fluxRing.position.set(0, 2.8, 0);
-    fluxRing.scale.setScalar(2.4);
-    const beam = new THREE.Mesh(geoCyl, bank.holoBlue);
-    beam.position.set(0, 3.6, 0);
-    beam.scale.set(0.55, 6.2, 0.55);
-    interiorGroup.add(mainCrystal, fluxRing, beam);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.4 : 1.0;
-        mainCrystal.rotation.y = t * 1.1 * spd;
-        mainCrystal.position.y = 2.9 + Math.sin(t * 2.0 * spd) * 0.35;
-        fluxRing.rotation.x = t * 0.9 * spd;
-        fluxRing.rotation.z = t * 1.2 * spd;
-        subCrystals.forEach((sc, idx) => {
-          sc.rotation.y = -t * 1.3 * spd + idx;
-          sc.position.y = 1.65 + Math.sin(t * 2.4 + idx) * 0.25;
-        });
-      },
-    });
-  } else if (domeIndex === 6) {
-    // DOME 6 — FUTURE VEHICLES (All 8 showcase vehicles from Reference Image #2)
-    buildFutureVehicleExhibition(interiorGroup, bank, anims, 'dome_6');
-  } else if (domeIndex === 7) {
-    // DOME 7 — SATELLITE TECHNOLOGY: Deep Space Dish + Relay Satellite with Articulating Solar Wings
-    const satGroup = new THREE.Group();
-    satGroup.position.set(0, 3.1, 0);
-    const bus = new THREE.Mesh(geoBox, bank.goldMetal);
-    bus.scale.set(1.3, 1.3, 1.6);
-    const wingL = new THREE.Mesh(geoBox, bank.crystalCyan);
-    wingL.position.set(-2.6, 0, 0);
-    wingL.scale.set(3.2, 0.08, 1.45);
-    const wingR = new THREE.Mesh(geoBox, bank.crystalCyan);
-    wingR.position.set(2.6, 0, 0);
-    wingR.scale.set(3.2, 0.08, 1.45);
-    const dish = new THREE.Mesh(geoCone, bank.whiteMetal);
-    dish.position.set(0, 1.15, 0.6);
-    dish.rotation.x = 0.6;
-    dish.scale.set(1.4, 0.6, 1.4);
-    satGroup.add(bus, wingL, wingR, dish);
-    interiorGroup.add(satGroup);
-
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.1 : 1.0;
-        satGroup.rotation.y = t * 0.65 * spd;
-        wingL.rotation.x = Math.sin(t * 1.1 * spd) * 0.45;
-        wingR.rotation.x = Math.sin(t * 1.1 * spd) * 0.45;
-      },
-    });
-  } else {
-    // DOME 8 — OCEAN DISCOVERY: Shark, Whale, Dolphins, Underwater ROV & Bubbles
-    const orbitPool = new THREE.Group();
-    orbitPool.position.set(0, 2.7, 0);
-
-    const mkFish = (len: number, rad: number, mat: THREE.Material, radius: number, phase: number, height: number) => {
-      const f = new THREE.Group();
-      const body = new THREE.Mesh(geoSphere, mat);
-      body.scale.set(rad, rad * 0.85, len);
-      const tail = new THREE.Mesh(geoCone, mat);
-      tail.rotation.x = Math.PI * 0.5;
-      tail.position.set(0, 0, -len * 0.85);
-      tail.scale.set(rad * 0.7, rad * 0.9, rad * 0.7);
-      f.add(body, tail);
-      f.userData = { radius, phase, height, tail };
-      orbitPool.add(f);
-      return f;
-    };
-
-    const shark = mkFish(1.8, 0.42, bank.oceanShark, 3.8, 0, 0.35);
-    const whale = mkFish(2.6, 0.68, bank.slateMetal, 2.4, 2.1, 1.25);
-    const dolphin1 = mkFish(1.2, 0.3, bank.crystalCyan, 4.4, 1.2, -0.45);
-    const dolphin2 = mkFish(1.2, 0.3, bank.crystalCyan, 4.4, 4.2, -0.25);
-    const rov = new THREE.Mesh(geoBox, bank.amberGlow);
-    rov.position.set(0, -1.3, 0);
-    rov.scale.set(1.1, 0.65, 1.35);
-
-    // Coral columns + instanced rising bubbles
-    [-3.1, 2.8, -1.2, 1.6].forEach((cx, idx) => {
-      const coral = new THREE.Mesh(geoCone, idx % 2 === 0 ? bank.crimsonPaint : bank.crystalPurple);
-      coral.position.set(cx, -2.0, idx % 2 === 0 ? 1.8 : -2.1);
-      coral.scale.set(0.65, 1.35, 0.65);
-      orbitPool.add(coral);
-    });
-
-    const bubbleGeo = new THREE.SphereGeometry(0.11, 6, 6);
-    bank.sharedGeos.push(bubbleGeo);
-    const bubbleCount = 24;
-    const bubbles = new THREE.InstancedMesh(bubbleGeo, bank.holoBlue, bubbleCount);
-    const dummy = new THREE.Object3D();
-    interiorGroup.add(orbitPool, rov, bubbles);
-
-    const swimmers = [shark, whale, dolphin1, dolphin2];
-    anims.push({
-      zoneKey,
-      update: (t, _dt, boost) => {
-        const spd = boost ? 2.0 : 1.0;
-        swimmers.forEach((sw, i) => {
-          const { radius, phase, height, tail } = sw.userData as {
-            radius: number;
-            phase: number;
-            height: number;
-            tail: THREE.Object3D;
-          };
-          const a = t * (0.62 + i * 0.12) * spd + phase;
-          sw.position.set(Math.cos(a) * radius, height + Math.sin(t * 2.2 + i) * 0.28, Math.sin(a) * radius);
-          sw.rotation.y = -a;
-          tail.rotation.y = Math.sin(t * 7.5 * spd + i) * 0.45;
-        });
-        rov.rotation.y = t * 0.55 * spd;
-        rov.position.y = 1.45 + Math.sin(t * 1.4) * 0.25;
-
-        for (let b = 0; b < bubbleCount; b++) {
-          const ang = b * 1.37;
-          const r = 1.2 + (b % 5) * 0.85;
-          const y = ((t * 1.4 * spd + b * 0.42) % 4.6) + 0.6;
-          dummy.position.set(Math.cos(ang) * r, y, Math.sin(ang) * r);
-          dummy.scale.setScalar(0.75 + (b % 3) * 0.3);
-          dummy.updateMatrix();
-          bubbles.setMatrixAt(b, dummy.matrix);
-        }
-        bubbles.instanceMatrix.needsUpdate = true;
-      },
-    });
+    uvAttr.needsUpdate = true;
   }
+  const wingGeo = new THREE.PlaneGeometry(2.65, 2.25);
+  bank.sharedGeos.push(geoBox, geoCyl, geoSphere, geoTorus, screenGeo, wingGeo);
+
+  const accentColorHex = domeInfo?.accentHex ?? '#22d3ee';
+  const accentColorNum = domeInfo?.accentNum ?? 0x22d3ee;
+  const accentMat = new THREE.MeshBasicMaterial({ color: accentColorNum });
+  bank.sharedMats.push(accentMat);
+
+  // Central Cyber Holo Projector Stage
+  const ped = new THREE.Mesh(geoCyl, bank.slateMetal);
+  ped.position.set(0, 0.24, 0);
+  ped.scale.set(5.4, 0.48, 5.4);
+  const pedRing = new THREE.Mesh(geoTorus, accentMat);
+  pedRing.rotation.x = Math.PI * 0.5;
+  pedRing.position.set(0, 0.5, 0);
+  pedRing.scale.setScalar(2.02);
+  const holoBeam = new THREE.Mesh(geoCyl, bank.holoBlue);
+  holoBeam.position.set(0, 2.3, -0.3);
+  holoBeam.scale.set(1.3, 3.6, 1.3);
+  const emitterOrb = new THREE.Mesh(geoSphere, accentMat);
+  emitterOrb.position.set(0, 0.85, 0.6);
+  emitterOrb.scale.setScalar(0.62);
+  const emitterHalo = new THREE.Mesh(geoTorus, accentMat);
+  emitterHalo.position.set(0, 0.85, 0.6);
+  emitterHalo.scale.setScalar(0.55);
+  interiorGroup.add(ped, pedRing, holoBeam, emitterOrb, emitterHalo);
+
+  // Curved Frame Rails (top + bottom arc brackets)
+  const bezelArcGeo = new THREE.TorusGeometry(4.55, 0.08, 8, 28, Math.PI * 0.78);
+  bank.sharedGeos.push(bezelArcGeo);
+  const topArc = new THREE.Mesh(bezelArcGeo, accentMat);
+  topArc.rotation.x = Math.PI * 0.5;
+  topArc.rotation.z = Math.PI * 0.11;
+  topArc.position.set(0, 5.15, 0);
+  const botArc = new THREE.Mesh(bezelArcGeo, bank.whiteMetal);
+  botArc.rotation.x = Math.PI * 0.5;
+  botArc.rotation.z = Math.PI * 0.11;
+  botArc.position.set(0, 0.72, 0);
+  interiorGroup.add(topArc, botArc);
+
+  const playlist = SCIENCE_DOME_VIDEO_PLAYLISTS[domeIndex - 1] ?? SCIENCE_DOME_VIDEO_PLAYLISTS[0];
+  let screenMat: THREE.Material = bank.holoBlue;
+  if (displays) {
+    const res = displays.createVideoDisplayMaterial(playlist, 'sci_dome_screen', {
+      title: domeInfo?.shortTitle?.toUpperCase() ?? `DOME ${domeIndex} STREAM`,
+      subtitle: `HOLOGRAM STREAM · DOME ${domeIndex}`,
+      accentHex: accentColorHex,
+      width: 512,
+      height: 288,
+      intervalSec: 0.04,
+      worldPos: domeInfo ? { x: domeInfo.x, y: 3.1, z: domeInfo.z } : undefined,
+    });
+    res.material.side = THREE.DoubleSide;
+    screenMat = res.material;
+  }
+
+  // Main Curved 3D Projection Screen (facing south entrance)
+  const mainScreen = new THREE.Mesh(screenGeo, screenMat);
+  mainScreen.position.set(0, 2.94, 0);
+  interiorGroup.add(mainScreen);
+
+  // Flanking 3D Floating Holographic Side Screens
+  const wingLeft = new THREE.Mesh(wingGeo, screenMat);
+  wingLeft.position.set(-4.3, 2.55, 1.35);
+  wingLeft.rotation.y = 0.58;
+  const wingRight = new THREE.Mesh(wingGeo, screenMat);
+  wingRight.position.set(4.3, 2.55, 1.35);
+  wingRight.rotation.y = -0.58;
+  interiorGroup.add(wingLeft, wingRight);
+
+  anims.push({
+    zoneKey,
+    update: (t, _dt, boost) => {
+      const spd = boost ? 2.2 : 1.0;
+      emitterOrb.position.y = 0.92 + Math.sin(t * 2.4 * spd) * 0.16;
+      emitterHalo.position.y = emitterOrb.position.y;
+      emitterHalo.rotation.x = t * 1.4 * spd;
+      emitterHalo.rotation.y = t * 1.9 * spd;
+      holoBeam.rotation.y = t * 0.75 * spd;
+      wingLeft.position.y = 2.55 + Math.sin(t * 1.8 * spd) * 0.1;
+      wingRight.position.y = 2.55 + Math.cos(t * 1.8 * spd) * 0.1;
+    },
+  });
 }
