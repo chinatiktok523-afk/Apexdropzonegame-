@@ -102,6 +102,8 @@ import {
 } from './smartCitySystems';
 import { buildSmartCityWorld } from './smartCityWorld';
 import { buildSmartCityTransit } from './smartCityTransit';
+import { isInScienceDistrictZone, isOnScienceDistrictRoad } from './scienceDistrictSystems';
+import { buildScienceDistrictWorld } from './scienceDistrictWorld';
 
 const AVENUE_X = [-140, 0, 140];
 const AVENUE_Z = [-140, 0, 140];
@@ -140,6 +142,7 @@ export function isInsidePavedBuildingPad(x: number, z: number, pad = 0): boolean
 
 export function isOnMegaRoad(x: number, z: number): boolean {
   if (isOnSmartCityRoad(x, z)) return true;
+  if (isOnScienceDistrictRoad(x, z)) return true;
   if (isOnBayCityRoad(x, z)) return true;
   if (isOnGrandEastRoad(x, z)) return true;
   if (isOnGrandWestRoad(x, z)) return true;
@@ -1572,7 +1575,7 @@ function populateInstancedFlora(
   for (let i = 0; i < treeCount; i++) {
     const tx = -240 + rand() * 785;
     const tz = (rand() - 0.5) * 440;
-    if (isOnMegaRoad(tx, tz) || isInsidePavedBuildingPad(tx, tz, 6) || isInsideMansionProperty(tx, tz, 6) || isInSmartCityZone(tx, tz)) continue;
+    if (isOnMegaRoad(tx, tz) || isInsidePavedBuildingPad(tx, tz, 6) || isInsideMansionProperty(tx, tz, 6) || isInSmartCityZone(tx, tz) || isInScienceDistrictZone(tx, tz, 6)) continue;
     if (Math.abs(Math.abs(tx) - 228) < 8 || Math.abs(Math.abs(tz) - 228) < 8) continue;
     if (Math.hypot(tx - 26, tz - 34) < 26 || Math.hypot(tx + 44, tz + 36) < 28) continue;
     if (Math.hypot(tx - 84, tz - 86) < 34 || Math.hypot(tx - 186, tz - 36) < 28) continue;
@@ -1600,7 +1603,7 @@ function populateInstancedFlora(
   for (let i = 0; i < grassTargetCount; i++) {
     const gx = -245 + rand() * 790;
     const gz = (rand() - 0.5) * 440;
-    if (isOnMegaRoad(gx, gz) || isInsidePavedBuildingPad(gx, gz, 5) || isInsideMansionProperty(gx, gz, 6) || isInSmartCityZone(gx, gz)) continue;
+    if (isOnMegaRoad(gx, gz) || isInsidePavedBuildingPad(gx, gz, 5) || isInsideMansionProperty(gx, gz, 6) || isInSmartCityZone(gx, gz) || isInScienceDistrictZone(gx, gz, 6)) continue;
     if (gx >= 245 && gx < 530 && Math.abs(gz) < 168) {
       const inPark = gx >= 450 && gx <= 500 && gz >= 12 && gz <= 72;
       if (!inPark) continue;
@@ -1615,7 +1618,7 @@ function populateInstancedFlora(
   for (let i = 0; i < boulderTargetCount; i++) {
     const bx = -255 + rand() * 800;
     const bz = (rand() - 0.5) * 460;
-    if (isOnMegaRoad(bx, bz) || isInsidePavedBuildingPad(bx, bz, 5) || isInsideMansionProperty(bx, bz, 6) || isInSmartCityZone(bx, bz)) continue;
+    if (isOnMegaRoad(bx, bz) || isInsidePavedBuildingPad(bx, bz, 5) || isInsideMansionProperty(bx, bz, 6) || isInSmartCityZone(bx, bz) || isInScienceDistrictZone(bx, bz, 6)) continue;
     if (Math.abs(bx) < 220 && Math.abs(bz) < 215 && !(bx < -150 && bz < -150)) continue;
     const by = groundHeightAt(bx, bz, 0);
     if (by < -0.6) continue;
@@ -1877,15 +1880,16 @@ export function buildUnifiedSimulatorArena(
     }
     const inMansionPad = isInsideMansionProperty(vx, vz, 6);
     const inSmartCityPad = isInSmartCityZone(vx, vz);
+    const inSciencePad = isInScienceDistrictZone(vx, vz, 6);
     const inInnerCity = Math.abs(vx) < 225 && Math.abs(vz) < 225;
-    if (!nearRoad && !inInnerCity && !inMansionPad && !inSmartCityPad && vy >= -0.05 && vy < 4.5 && !(vx >= 250 && vx < 544 && Math.abs(vz) < 165)) {
+    if (!nearRoad && !inInnerCity && !inMansionPad && !inSmartCityPad && !inSciencePad && vy >= -0.05 && vy < 4.5 && !(vx >= 250 && vx < 544 && Math.abs(vz) < 165)) {
       vy += (fbm2D(vx * 0.025, vz * 0.025, 3) - 0.45) * 0.65;
     }
     const inMallPad = isInsidePavedBuildingPad(vx, vz, 8.5);
     const inChinatownPad = vx >= 792 && vx <= 1126 && vz >= 160 && vz <= 304;
     const inCastleGround = vx >= 1162 && vx <= 1408 && vz >= 98 && vz <= 278;
     const inAirportPad = vx >= 1144 && vx <= 1456 && vz >= -282 && vz <= -152;
-    if ((inMallPad || inMansionPad || inChinatownPad || inCastleGround || inAirportPad) && Math.abs(vy) < 0.35) {
+    if ((inMallPad || inMansionPad || inSciencePad || inChinatownPad || inCastleGround || inAirportPad) && Math.abs(vy) < 0.35) {
       vy = -0.24;
     } else if (nearRoad && Math.abs(vy) < 0.35) {
       vy = -0.22;
@@ -1896,6 +1900,7 @@ export function buildUnifiedSimulatorArena(
   const sampleMegaTerrainColorAndMask = (vx: number, vz: number, vy: number): number => {
     const inMansionPad = isInsideMansionProperty(vx, vz, 6);
     const inSmartCityPad = isInSmartCityZone(vx, vz);
+    const inSciencePad = isInScienceDistrictZone(vx, vz, 4);
     const inMallPad = isInsidePavedBuildingPad(vx, vz, 8.5);
     const inChinatownPad = vx >= 792 && vx <= 1126 && vz >= 160 && vz <= 304;
     const inCastleGround = vx >= 1162 && vx <= 1408 && vz >= 98 && vz <= 278;
@@ -1905,7 +1910,7 @@ export function buildUnifiedSimulatorArena(
     if (inChinatownPad && vy <= 0.1) {
       tmpC.copy(chinatownStoneC);
       rMask = 0.96;
-    } else if ((inMallPad || inMansionPad) && vy <= 0.1) {
+    } else if ((inMallPad || inMansionPad || inSciencePad) && vy <= 0.1) {
       tmpC.copy(sidewalkC);
       rMask = 0.96;
     } else if (inCastleGround && vy <= 0.1) {
@@ -2195,6 +2200,14 @@ export function buildUnifiedSimulatorArena(
   addPavedRoadStrip(58, 70, 10.4, 140, true);
   addPavedRoadStrip(188, -174, 10.8, 68, true);
   addPavedRoadStrip(192, 174, 10.8, 68, true);
+  // Futuristic Science District Connecting Avenues (links Smart City, Mansion East & Central x=140!)
+  addPavedRoadStrip(59, -474, 346, 14.4, false); // Science Boulevard (x: -114..+232)
+  addPavedRoadStrip(-114, -470.5, 12.4, 21, true); // Smart City Gate 1 connector
+  addPavedRoadStrip(140, -344.5, 14.4, 273, true); // Central x=140 Northbound Extension
+  addPavedRoadStrip(104, -364.5, 11.2, 233, true); // Mansion East Scenic Parkway
+  addPavedRoadStrip(116, -660, 208, 10.8, false); // Science District Rear Loop North
+  addPavedRoadStrip(12, -569, 10.8, 190, true); // West Science Perimeter
+  addPavedRoadStrip(220, -569, 10.8, 190, true); // East Science Perimeter
 
   // Grounded Bridge across Seine River along West Avenue x=-140 (flush approaches down to y=0 + stone bank piers!)
   const sbSlopeLen = Math.hypot(7, 0.92);
@@ -2272,13 +2285,17 @@ export function buildUnifiedSimulatorArena(
     { kind: 'crosswalk', x: 10.5, z: 0, rotY: Math.PI * 0.5 },
     { kind: 'crosswalk', x: -10.5, z: 0, rotY: Math.PI * 0.5 },
     { kind: 'parking_bays', x: 14, z: -12, count: 6, rotY: 0 },
+    { kind: 'dash_line', x1: -114, z1: -474, x2: 232, z2: -474, color: 0x38bdf8 },
+    { kind: 'dash_line', x1: 140, z1: -208, x2: 140, z2: -474, color: 0xfacc15 },
+    { kind: 'dash_line', x1: 104, z1: -248, x2: 104, z2: -474, color: 0xe2e8f0 },
   ];
   addRoadMarkingsBatch(arenaGroup, markings, groundHeightAt, geometries, materials);
 
-  // 1. CENTRAL HUB: Apex 4-Level Luxury Mansion + Smart City Mega Project beside Mansion & Garage
+  // 1. CENTRAL HUB: Apex 4-Level Luxury Mansion + Smart City Mega Project + Futuristic Science District
   const mansionBuilt = buildLuxuryMansionProperty(simCtx);
   const smartCity = buildSmartCityWorld(simCtx, cityPal, groundHeightAt);
   const smartCityTransit = buildSmartCityTransit(simCtx, cityPal, groundHeightAt);
+  const scienceDistrict = buildScienceDistrictWorld(simCtx, cityPal);
   placeWaterfrontHotelResort(simCtx, cityPal, { x: 26, z: 34 });
   const parkBuilt = placeModernParkPlayground(simCtx, cityPal, -46, 44);
   placeEnterableOfficeBuilding(simCtx, cityPal, { x: 56, z: -36 });
@@ -2888,6 +2905,11 @@ export function buildUnifiedSimulatorArena(
     { id: 'sc_scooter_eco_park', kind: 'electric_scooter', x: -93, z: -474, yaw: -0.35 },
     { id: 'sc_scooter_station_plaza', kind: 'electric_scooter', x: -121, z: -536, yaw: 0.9 },
     { id: 'sc_scooter_research_plaza', kind: 'electric_scooter', x: -134, z: -554, yaw: -0.8 },
+    // FUTURISTIC SCIENCE DISTRICT EV CHARGING BAY FLEET
+    { id: 'sci_ev_sport_1', kind: 'vision_silver', x: -2, z: -501, yaw: 0 },
+    { id: 'sci_ev_hyper_2', kind: 'lambo_blue_hyper', x: 5.5, z: -501, yaw: 0 },
+    { id: 'sci_ev_bike_1', kind: 'digital_bike', x: 13, z: -501, yaw: 0, bikeStyle: BIKE_STYLES[0].id },
+    { id: 'sci_ev_bike_2', kind: 'digital_bike', x: 20.5, z: -501, yaw: 0, bikeStyle: BIKE_STYLES[2].id },
   ];
 
   // 9. DINING SEATS + HOT FOOD STEAM
@@ -2898,6 +2920,8 @@ export function buildUnifiedSimulatorArena(
     { id: 'hb4', tableId: 'ht2', venue: 'hotel_banquet', x: 37.6, y: 0, z: 30.5, lookAtX: 36.2, lookAtZ: 30.5, hasHotFood: true },
     { id: 'hb5', tableId: 'ht3', venue: 'hotel_banquet', x: 31.1, y: 0, z: 37.2, lookAtX: 32.5, lookAtZ: 37.2, hasHotFood: true },
     { id: 'hb6', tableId: 'ht3', venue: 'hotel_banquet', x: 33.9, y: 0, z: 37.2, lookAtX: 32.5, lookAtZ: 37.2, hasHotFood: true },
+    { id: 'hb7', tableId: 'ht4', venue: 'hotel_banquet', x: 34.8, y: 0, z: 37.2, lookAtX: 36.2, lookAtZ: 37.2, hasHotFood: true },
+    { id: 'hb8', tableId: 'ht4', venue: 'hotel_banquet', x: 37.6, y: 0, z: 37.2, lookAtX: 36.2, lookAtZ: 37.2, hasHotFood: true },
     { id: 'sb1', tableId: 'st1', venue: 'seine_bistro', x: -108, y: 0, z: 121, lookAtX: -106, lookAtZ: 121, hasHotFood: true },
     { id: 'sb2', tableId: 'st1', venue: 'seine_bistro', x: -104, y: 0, z: 121, lookAtX: -106, lookAtZ: 121, hasHotFood: true },
     { id: 'mf1', tableId: 'mt1', venue: 'mall_food_court', x: -34.8, y: 5.0, z: -28.4, lookAtX: -34.8, lookAtZ: -28.4, hasHotFood: true },
@@ -3216,9 +3240,10 @@ export function buildUnifiedSimulatorArena(
       }
     }
 
+    const actualParent = lg.group.parent instanceof THREE.Group ? lg.group.parent : arenaGroup;
     worldStreaming.registerDistrictGroup({
       id: `lod_${i}`,
-      parent: arenaGroup,
+      parent: actualParent,
       group: lg.group,
       proxyGroup,
       x: lg.x,
@@ -3296,6 +3321,7 @@ export function buildUnifiedSimulatorArena(
     npcManager,
     smartCity,
     smartCityTransit,
+    scienceDistrict,
     worldStreaming,
     updateMansionPortals: mansionBuilt.updateProximityPortals,
     update: (dt: number, elapsed: number, cameraPos?: THREE.Vector3 | null, quality?: GraphicsQuality) => {
@@ -3320,6 +3346,7 @@ export function buildUnifiedSimulatorArena(
       worldStreaming.dispose();
       smartCityTransit.dispose();
       smartCity.dispose();
+      scienceDistrict.dispose();
       wildlifeProps.dispose();
       displays.dispose();
       npcManager.dispose();

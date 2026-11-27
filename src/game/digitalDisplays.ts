@@ -299,13 +299,14 @@ export class DigitalDisplayManager {
       video.volume = 0;
       video.loop = playlist.length <= 1;
       video.playsInline = true;
-      video.autoplay = false;
-      video.preload = 'metadata';
+      video.autoplay = true;
+      video.preload = 'auto';
       if (/^https?:\/\//i.test(firstSrc)) {
         video.crossOrigin = 'anonymous';
       }
       video.setAttribute?.('playsinline', '');
       video.setAttribute?.('webkit-playsinline', '');
+      video.setAttribute?.('autoplay', '');
       video.setAttribute?.('muted', '');
 
       const poolContainer = this.getOrCreateVideoPoolContainer();
@@ -378,15 +379,23 @@ export class DigitalDisplayManager {
         }
       });
 
+      video.addEventListener?.('loadedmetadata', () => {
+        this.tryPlayStream(newStream);
+      });
       video.addEventListener?.('loadeddata', paintSubscribers);
       video.addEventListener?.('canplay', paintSubscribers);
+      video.addEventListener?.('canplaythrough', paintSubscribers);
       video.addEventListener?.('playing', paintSubscribers);
+      this.tryPlayStream(newStream);
 
       if (typeof window !== 'undefined') {
         const resumeOnce = () => {
           this.globalAudioUnlocked = true;
           for (let si = 0; si < newStream.subscribers.length; si++) {
             newStream.subscribers[si].audioUnlocked = true;
+          }
+          if (!newStream.failed && newStream.video.paused) {
+            this.tryPlayStream(newStream);
           }
           window.removeEventListener('pointerdown', resumeOnce);
           window.removeEventListener('keydown', resumeOnce);
@@ -1115,10 +1124,10 @@ export class DigitalDisplayManager {
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(title || 'EXPLOSIVE COLORS HDR', w * 0.5, h * 0.46);
+      ctx.fillText(title || 'MAIN SCREEN VIDEO', w * 0.5, h * 0.46);
       ctx.fillStyle = '#fde047';
       ctx.font = 'bold 13px monospace';
-      ctx.fillText(subtitle || '4K DOLBY VISION · CONTINUOUS LOOP', w * 0.5, h * 0.62);
+      ctx.fillText(subtitle || 'HD FEED · CONTINUOUS STREAM', w * 0.5, h * 0.62);
     } else if (kind === 'mansion_dj_eq') {
       ctx.fillStyle = '#05060f';
       ctx.fillRect(0, 0, w, h);

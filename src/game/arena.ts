@@ -331,6 +331,7 @@ export interface BuiltArena {
   npcManager?: SimulatorNpcManager;
   smartCity?: import('./smartCityWorld').SmartCityWorldController;
   smartCityTransit?: import('./smartCityTransit').SmartCityTransitController;
+  scienceDistrict?: import('./scienceDistrictWorld').ScienceDistrictController;
   worldStreaming?: import('./worldStreaming').WorldStreamingController;
   updateMansionPortals?: (
     playerX: number,

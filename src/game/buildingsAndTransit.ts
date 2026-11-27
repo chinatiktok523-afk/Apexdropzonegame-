@@ -596,8 +596,10 @@ export function placeWaterfrontHotelResort(
   ctx.arenaGroup.add(g);
 
   const detailGroup = new THREE.Group();
+  detailGroup.userData.keepInArenaRoot = true;
+  detailGroup.userData.noBatch = true;
   g.add(detailGroup);
-  ctx.lodDetailGroups.push({ group: detailGroup, x: ox, z: oz, maxDist: 92 });
+  ctx.lodDetailGroups.push({ group: detailGroup, x: ox, z: oz, maxDist: 132 });
 
   const W = 28; // x in [-14, +14]
   const D = 20; // z in [-10, +10]
@@ -712,7 +714,7 @@ export function placeWaterfrontHotelResort(
   addBoxMesh(detailGroup, pal, pal.warmGold, 8.8, 3.65, -7.6, 6.4, 0.5, 1.4);
   pushCollider(ctx.colliders, ox + 8.8, 0, oz - 7.6, 6.4, 1.25, 1.4);
 
-  // Chandelier Banquet Dining Tables on East Wing + Hot Food Plates & Cups
+  // Chandelier Banquet Dining Tables on East Wing + Hot Food Plates, Cups & 4-Side Velvet Chairs
   [
     [6.5, -3.5],
     [10.2, -3.5],
@@ -723,11 +725,20 @@ export function placeWaterfrontHotelResort(
     addBoxMesh(detailGroup, pal, pal.warmGold, tx, 0.42, tz, 0.35, 0.8, 0.35);
     addBoxMesh(detailGroup, pal, pal.redAwning, tx - 1.35, 0.5, tz, 0.55, 0.7, 0.55);
     addBoxMesh(detailGroup, pal, pal.redAwning, tx + 1.35, 0.5, tz, 0.55, 0.7, 0.55);
+    addBoxMesh(detailGroup, pal, pal.redAwning, tx, 0.5, tz - 1.35, 0.55, 0.7, 0.55);
+    addBoxMesh(detailGroup, pal, pal.redAwning, tx, 0.5, tz + 1.35, 0.55, 0.7, 0.55);
     // Dining plates & hot bowls
     addBoxMesh(detailGroup, pal, pal.warmGold, tx - 0.5, 0.94, tz, 0.44, 0.06, 0.44);
     addBoxMesh(detailGroup, pal, pal.amberAwning, tx + 0.5, 0.95, tz, 0.42, 0.09, 0.42);
     pushCollider(ctx.colliders, ox + tx, 0, oz + tz, 2.2, 0.95, 2.2);
   });
+
+  // Ground Lobby Lounge Marble Coffee Table & Twin Armchairs (West-South Lobby Bay)
+  addBoxMesh(detailGroup, pal, pal.whiteMarble, -5.8, 0.52, 4.4, 2.4, 0.12, 1.5);
+  addBoxMesh(detailGroup, pal, pal.warmGold, -5.8, 0.26, 4.4, 1.6, 0.48, 0.9);
+  addBoxMesh(detailGroup, pal, pal.tealAwning, -5.8, 0.54, 6.2, 2.6, 0.72, 1.0);
+  addBoxMesh(detailGroup, pal, pal.tealAwning, -3.5, 0.54, 4.4, 1.0, 0.72, 1.4);
+  pushCollider(ctx.colliders, ox - 5.8, 0, oz + 4.4, 2.4, 0.7, 1.5);
 
   // Glowing Circular Pendant Chandeliers inside Lobby & Banquet Hall
   [-6.5, 8.2].forEach((cx) => {

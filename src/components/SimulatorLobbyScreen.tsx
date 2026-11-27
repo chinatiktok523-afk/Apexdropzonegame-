@@ -1,36 +1,38 @@
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   Bike,
-  Cloud,
-  CloudFog,
-  CloudRain,
+  Coins,
   Compass,
   Eye,
-  LogIn,
-  LogOut,
-  MapPin,
+  EyeOff,
   Maximize2,
   Minimize2,
-  Minus,
-  Moon,
   Play,
-  Plus,
-  SlidersHorizontal,
-  Sun,
-  Sunset,
   Volume2,
   VolumeX,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
-import { SimulatorProgress } from '../game/offlineStorage';
+import type { SimulatorProgress } from '../game/offlineStorage';
 import {
   BIKE_STYLES,
-  BikeStyleId,
-  GraphicsQuality,
-  HudSettings,
-  SIMULATOR_POIS,
-  TimeOfDayPhase,
-  WeatherKind,
+  type BikeStyleId,
+  type HudSettings,
+  type LobbyViewMode,
+  type TimeOfDayPhase,
+  type WeatherKind,
 } from '../types';
+import {
+  getLobbyCopy,
+  loadStoredMusicVolume,
+  type LobbyTabId,
+} from '../game/lobbyConfig';
+import { LobbyNavDock } from './lobby/LobbyNavDock';
+import { LobbyHomeTab } from './lobby/LobbyHomeTab';
+import { LobbyWorldSelectTab } from './lobby/LobbyWorldSelectTab';
+import { LobbyGraphicsTab } from './lobby/LobbyGraphicsTab';
+import { LobbySettingsTab } from './lobby/LobbySettingsTab';
+import { LobbyProfileTab } from './lobby/LobbyProfileTab';
 
 interface SimulatorLobbyScreenProps {
   simStartPoiId: string;
@@ -52,45 +54,15 @@ interface SimulatorLobbyScreenProps {
   onToggleFullscreen: () => void;
   onOpenHudEditor: () => void;
   onDeploySimulator: () => void;
+  onChangeLobbyViewMode?: (mode: LobbyViewMode) => void;
+  onPreviewWorldCoords?: (x: number, z: number) => void;
+  onLobbyCameraDrag?: (dx: number, dy: number) => void;
+  onLobbyCameraZoom?: (delta: number) => void;
   signedInUserName?: string | null;
   authBusy?: boolean;
   onSignInGoogle?: () => void;
   onSignOut?: () => void;
 }
-
-const TIME_OPTIONS: {
-  id: TimeOfDayPhase;
-  label: string;
-  icon: React.FC<{ className?: string }>;
-}[] = [
-  { id: 'morning', label: 'Morning', icon: Sun },
-  { id: 'afternoon', label: 'Afternoon', icon: Sun },
-  { id: 'sunset', label: 'Sunset', icon: Sunset },
-  { id: 'night', label: 'Night', icon: Moon },
-];
-
-const WEATHER_OPTIONS: {
-  id: WeatherKind;
-  label: string;
-  icon: React.FC<{ className?: string }>;
-}[] = [
-  { id: 'clear', label: 'Clear', icon: Sun },
-  { id: 'cloudy', label: 'Cloudy', icon: Cloud },
-  { id: 'foggy', label: 'Foggy', icon: CloudFog },
-  { id: 'rainy', label: 'Rainy', icon: CloudRain },
-];
-
-const GRAPHICS_OPTIONS: { id: GraphicsQuality; label: string; detail: string }[] = [
-  { id: 'low', label: '60 FPS Smooth', detail: 'Best frame rate for mobile & laptops' },
-  { id: 'medium', label: 'Balanced', detail: 'Crisp shadows & high view distance' },
-  { id: 'high', label: 'Ultra Detail', detail: 'Maximum textures & optional bloom' },
-];
-
-const SATURATION_PRESETS = [
-  { label: 'Natural', value: 1.0 },
-  { label: 'Vibrant', value: 1.38 },
-  { label: 'Vivid', value: 1.65 },
-];
 
 export const SimulatorLobbyScreen: React.FC<SimulatorLobbyScreenProps> = ({
   simStartPoiId,
@@ -112,500 +84,374 @@ export const SimulatorLobbyScreen: React.FC<SimulatorLobbyScreenProps> = ({
   onToggleFullscreen,
   onOpenHudEditor,
   onDeploySimulator,
-  signedInUserName = null,
+  onChangeLobbyViewMode,
+  onPreviewWorldCoords,
+  onLobbyCameraDrag,
+  onLobbyCameraZoom,
+  signedInUserName,
   authBusy = false,
   onSignInGoogle,
   onSignOut,
 }) => {
-  const selectedPoi =
-    simStartPoiId === 'saved_pos' && simProgress.hasSavedPosition
-      ? {
-          id: 'saved_pos',
-          name: `Saved Position · ${simProgress.lastDistrict || 'Mega-World'}`,
-          subtitle: `Resume at (${Math.round(simProgress.lastX)}, ${Math.round(simProgress.lastZ)})`,
-        }
-      : SIMULATOR_POIS.find((p) => p.id === simStartPoiId) || SIMULATOR_POIS[0];
+  const [activeTab, setActiveTab] = useState<LobbyTabId>('home');
+  const [previewMode, setPreviewMode] = useState<LobbyViewMode>('overview');
+  const [peek3dWorld, setPeek3dWorld] = useState(false);
+  const [musicVolume, setMusicVolume] = useState<number>(() => loadStoredMusicVolume());
+  const dragPtrRef = useRef<{ id: number; x: number; y: number } | null>(null);
 
-  const adjustSensitivity = (delta: number) => {
-    const next = Math.round(Math.min(3.0, Math.max(0.5, hudSettings.lookSensitivity + delta)) * 10) / 10;
-    onUpdateHudSettings({ ...hudSettings, lookSensitivity: next });
+  const copy = getLobbyCopy(hudSettings.language);
+  const isPerfLite = hudSettings.graphicsQuality === 'low';
+
+  const applyHudUpdate = useCallback(
+    (updater: (prev: HudSettings) => HudSettings) => {
+      onUpdateHudSettings(updater(hudSettings));
+    },
+    [hudSettings, onUpdateHudSettings],
+  );
+
+  const handlePreviewModeChange = useCallback(
+    (mode: LobbyViewMode, autoOpenShowroom = false) => {
+      setPreviewMode(mode);
+      onChangeLobbyViewMode?.(mode);
+      if (mode === 'bike') {
+        setPeek3dWorld(true);
+      } else if (mode === 'overview') {
+        setPeek3dWorld(false);
+      } else if (autoOpenShowroom && activeTab !== 'world') {
+        setPeek3dWorld(true);
+      }
+    },
+    [activeTab, onChangeLobbyViewMode],
+  );
+
+  const handleSelectTab = useCallback(
+    (tab: LobbyTabId) => {
+      setActiveTab(tab);
+      setPeek3dWorld(false);
+      if (tab === 'world' && previewMode !== 'map') {
+        setPreviewMode('map');
+        onChangeLobbyViewMode?.('map');
+      } else if (tab === 'home' && previewMode === 'map') {
+        setPreviewMode('overview');
+        onChangeLobbyViewMode?.('overview');
+      }
+    },
+    [previewMode, onChangeLobbyViewMode],
+  );
+
+  const handlePreviewLocation = useCallback(
+    (x: number, z: number) => {
+      setPreviewMode('map');
+      onChangeLobbyViewMode?.('map');
+      onPreviewWorldCoords?.(x, z);
+    },
+    [onChangeLobbyViewMode, onPreviewWorldCoords],
+  );
+
+  const handleBgPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    dragPtrRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
-  const saturationPct = Math.round((hudSettings.mapSaturation ?? 1.38) * 100);
-  const selectedBike = BIKE_STYLES.find((b) => b.id === simBikeStyle) || BIKE_STYLES[0];
+  const handleBgPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const ptr = dragPtrRef.current;
+    if (!ptr || ptr.id !== e.pointerId) return;
+    const dx = e.clientX - ptr.x;
+    const dy = e.clientY - ptr.y;
+    ptr.x = e.clientX;
+    ptr.y = e.clientY;
+    onLobbyCameraDrag?.(dx, dy);
+  };
+
+  const handleBgPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragPtrRef.current?.id === e.pointerId) {
+      dragPtrRef.current = null;
+    }
+  };
 
   return (
     <div
       data-testid="simulator-lobby-screen"
-      className="fixed inset-0 z-30 bg-[#050910] text-zinc-100 flex flex-col overflow-hidden select-none"
+      dir={hudSettings.language === 'ar' ? 'rtl' : 'ltr'}
+      onPointerDown={handleBgPointerDown}
+      onPointerMove={handleBgPointerMove}
+      onPointerUp={handleBgPointerUp}
+      onPointerCancel={handleBgPointerUp}
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) {
+          onLobbyCameraZoom?.(e.deltaY > 0 ? 0.1 : -0.1);
+        }
+      }}
+      className={`fixed inset-0 z-20 flex flex-col justify-between p-2.5 sm:p-4 lg:p-5 overflow-hidden bg-gradient-to-b from-slate-950/35 via-transparent to-slate-950/55 ${
+        isPerfLite ? 'glass-perf-lite' : ''
+      }`}
     >
-      {/* Top 3-Zone Header Bar */}
-      <header className="w-full border-b border-white/10 bg-[#080e18] px-4 sm:px-6 py-3 shrink-0">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="min-w-0">
-              <h1 className="font-display text-lg sm:text-2xl font-bold tracking-tight text-white truncate">
-                World Simulator Lobby
-              </h1>
-              <p className="text-xs text-zinc-400 truncate tabular-nums">
-                Unified Mega-World · {simProgress.visitedDistricts.length}/21 Zones Explored ·{' '}
-                {simProgress.credits.toLocaleString()} Credits
-              </p>
+      {/* Top Floating 3D Glass OS Status & Camera Preview Bar */}
+      <header className="w-full max-w-[1280px] mx-auto liquid-glass-shell liquid-prism-edge rounded-2xl px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="w-8 h-8 rounded-xl liquid-glass-icon-3d-active flex items-center justify-center text-cyan-200 shrink-0">
+            <Compass className="w-4 h-4" />
+          </span>
+          <div className="min-w-0">
+            <div className="text-xs sm:text-sm font-bold text-white truncate">
+              {copy.title}
+            </div>
+            <div className="text-[10px] text-cyan-300/85 truncate hidden sm:block">
+              Drag open background to orbit live 3D world
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {onSignInGoogle && onSignOut && (
-              signedInUserName ? (
-                <button
-                  type="button"
-                  disabled={authBusy}
-                  onClick={onSignOut}
-                  title={`Signed in as ${signedInUserName} — Click to sign out`}
-                  className="min-h-[42px] px-3 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/45 text-xs font-semibold text-emerald-200 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 max-w-[170px]"
-                >
-                  <LogOut className="w-4 h-4 shrink-0" />
-                  <span className="truncate">{signedInUserName}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={authBusy}
-                  onClick={onSignInGoogle}
-                  className="min-h-[42px] px-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/15 text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <LogIn className="w-4 h-4" />
-                  <span>{authBusy ? 'Signing In...' : 'Sign In'}</span>
-                </button>
-              )
-            )}
-            <button
-              type="button"
-              onClick={onToggleMute}
-              className={`min-h-[42px] px-3 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
-                muted
-                  ? 'bg-red-500/15 border-red-400/45 text-red-200'
-                  : 'bg-zinc-900 border-white/15 text-zinc-200 hover:bg-zinc-800'
-              }`}
-            >
-              {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              <span>{muted ? 'Muted' : 'Audio On'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={onToggleFullscreen}
-              className="min-h-[42px] px-3 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-white/15 text-xs font-semibold text-zinc-200 flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-            >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-            </button>
-            <button
-              type="button"
-              data-testid="sim-lobby-launch-btn"
-              onClick={onDeploySimulator}
-              className="min-h-[44px] px-5 rounded-lg bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-zinc-950 font-display text-sm sm:text-base font-extrabold tracking-wide flex items-center gap-2 transition-colors shadow-lg whitespace-nowrap shrink-0"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              <span>Enter World</span>
-            </button>
+        {/* Center Camera Preview Mode Toggle (Bike View vs City Flyover) */}
+        <div className="flex items-center gap-1.5 bg-slate-950/55 p-1 rounded-xl border border-white/10">
+          <button
+            type="button"
+            data-testid="topbar-bike-view-btn"
+            onClick={() => handlePreviewModeChange('bike', true)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              previewMode === 'bike'
+                ? 'bg-gradient-to-r from-orange-500/85 to-amber-500/85 text-slate-950 shadow-[0_0_12px_rgba(249,115,22,0.45)]'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Bike className="w-3.5 h-3.5" />
+            <span>{copy.bikeView}</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="topbar-city-flyover-btn"
+            onClick={() => handlePreviewModeChange('map', true)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              previewMode === 'map'
+                ? 'bg-gradient-to-r from-cyan-500/85 to-sky-500/85 text-white shadow-[0_0_12px_rgba(56,189,248,0.45)]'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>{copy.cityFlyover}</span>
+          </button>
+
+          {(previewMode === 'bike' || previewMode === 'map') && (
+            <div className="flex items-center gap-0.5 pl-1 border-l border-white/10">
+              <button
+                type="button"
+                aria-label="Zoom in 3D preview"
+                onClick={() => onLobbyCameraZoom?.(-0.14)}
+                className="w-6 h-6 rounded-md hover:bg-white/15 flex items-center justify-center text-slate-200 cursor-pointer"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Zoom out 3D preview"
+                onClick={() => onLobbyCameraZoom?.(0.14)}
+                className="w-6 h-6 rounded-md hover:bg-white/15 flex items-center justify-center text-slate-200 cursor-pointer"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Utility Pill Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-400/35 text-xs font-bold text-amber-200 tabular-nums">
+            <Coins className="w-3.5 h-3.5 text-amber-300" />
+            <span>{simProgress.credits.toLocaleString()}₡</span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setPeek3dWorld((v) => !v)}
+            title={peek3dWorld ? 'Show Lobby Panel' : 'Inspect Live 3D World'}
+            className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-[11px] font-semibold text-cyan-100 flex items-center gap-1 cursor-pointer"
+          >
+            {peek3dWorld ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{peek3dWorld ? 'Show UI' : '3D View'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleMute}
+            aria-label={muted ? 'Unmute audio' : 'Mute audio'}
+            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white cursor-pointer"
+          >
+            {muted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-cyan-300" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
         </div>
       </header>
 
-      {/* Main Two-Column Configuration Workspace */}
-      <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Left Column (7 cols): Play Position, Time, Weather, Modern Bike */}
-          <section className="lg:col-span-7 space-y-5">
-            {/* Play / Spawn Position */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-base font-bold text-white flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-sky-400" />
-                    <span>Play Position &amp; Starting District</span>
-                  </h2>
-                  <p className="text-xs text-zinc-400 mt-0.5">{selectedPoi.subtitle}</p>
-                </div>
-                <span className="text-xs font-mono text-sky-300 font-semibold tabular-nums">
-                  {selectedPoi.name}
-                </span>
-              </div>
+      {/* Main Content Area: Sidebar + Transparent Frosted Glass Content Viewport */}
+      {!peek3dWorld ? (
+        <div className="flex-1 min-h-0 w-full max-w-[1280px] mx-auto my-2.5 sm:my-3.5 flex flex-col md:flex-row gap-3.5">
+          {/* Desktop Vertical Sidebar */}
+          <div className="hidden md:flex shrink-0">
+            <LobbyNavDock activeTab={activeTab} onSelectTab={handleSelectTab} copy={copy} />
+          </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {simProgress.hasSavedPosition && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectSimStartPoi('saved_pos')}
-                    className={`min-h-[44px] px-3 py-2 rounded-lg border text-left transition-colors ${
-                      simStartPoiId === 'saved_pos'
-                        ? 'bg-emerald-500 text-zinc-950 border-emerald-300 font-bold'
-                        : 'bg-[#070c14] text-emerald-300 border-emerald-500/40 hover:border-emerald-400'
-                    }`}
-                  >
-                    <div className="text-xs font-bold truncate">Resume Saved Spot</div>
-                    <div
-                      className={`text-[10.5px] truncate tabular-nums ${
-                        simStartPoiId === 'saved_pos' ? 'text-emerald-950' : 'text-zinc-400'
-                      }`}
-                    >
-                      {simProgress.lastDistrict || 'Last Location'}
-                    </div>
-                  </button>
-                )}
+          {/* Active Tab Content Panel (Single Shared Glass Blur Shell) */}
+          <main className="flex-1 min-w-0 min-h-0 liquid-glass-shell liquid-prism-edge rounded-3xl p-3.5 sm:p-5 overflow-y-auto liquid-scroll">
+            {activeTab === 'home' && (
+              <LobbyHomeTab
+                simStartPoiId={simStartPoiId}
+                simTimePhase={simTimePhase}
+                simWeather={simWeather}
+                simAutoCycle={simAutoCycle}
+                simBikeStyle={simBikeStyle}
+                simProgress={simProgress}
+                previewMode={previewMode}
+                copy={copy}
+                onChangePreviewMode={(mode) => handlePreviewModeChange(mode, true)}
+                onSelectSimStartPoi={onSelectSimStartPoi}
+                onSelectSimTimePhase={onSelectSimTimePhase}
+                onSelectSimWeather={onSelectSimWeather}
+                onToggleSimAutoCycle={onToggleSimAutoCycle}
+                onSelectSimBikeStyle={onSelectSimBikeStyle}
+                onDeploySimulator={onDeploySimulator}
+                onOpenWorldSelect={() => handleSelectTab('world')}
+              />
+            )}
 
-                {SIMULATOR_POIS.map((poi) => {
-                  const active = simStartPoiId === poi.id;
-                  return (
-                    <button
-                      key={poi.id}
-                      type="button"
-                      onClick={() => onSelectSimStartPoi(poi.id)}
-                      className={`min-h-[44px] px-3 py-2 rounded-lg border text-left transition-colors ${
-                        active
-                          ? 'bg-sky-500 text-zinc-950 border-sky-300 font-bold'
-                          : 'bg-[#070c14] text-zinc-200 border-white/10 hover:border-sky-400/50'
-                      }`}
-                    >
-                      <div className="text-xs font-semibold truncate">
-                        {poi.shortName || poi.name}
-                      </div>
-                      <div
-                        className={`text-[10.5px] truncate tabular-nums ${
-                          active ? 'text-sky-950' : 'text-zinc-400'
-                        }`}
-                      >
-                        ({poi.x}, {poi.z})
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {activeTab === 'world' && (
+              <LobbyWorldSelectTab
+                simStartPoiId={simStartPoiId}
+                simProgress={simProgress}
+                copy={copy}
+                onSelectSimStartPoi={onSelectSimStartPoi}
+                onPreviewWorldLocation={handlePreviewLocation}
+                onDeploySimulator={onDeploySimulator}
+              />
+            )}
 
-            {/* Day / Night Time & Weather */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-amber-400" />
-                  <span>Day / Night Time &amp; Weather</span>
-                </h2>
-                <button
-                  type="button"
-                  onClick={onToggleSimAutoCycle}
-                  className={`min-h-[36px] px-3 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap ${
-                    simAutoCycle
-                      ? 'bg-emerald-500/20 border-emerald-400/55 text-emerald-200'
-                      : 'bg-zinc-900 border-white/15 text-zinc-300'
-                  }`}
-                >
-                  Auto Day Cycle: {simAutoCycle ? 'On' : 'Off'}
-                </button>
-              </div>
+            {activeTab === 'graphics' && (
+              <LobbyGraphicsTab
+                hudSettings={hudSettings}
+                copy={copy}
+                onUpdateHudSettings={applyHudUpdate}
+              />
+            )}
 
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-zinc-300">Time of Day</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {TIME_OPTIONS.map((t) => {
-                    const Icon = t.icon;
-                    const active = simTimePhase === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => onSelectSimTimePhase(t.id)}
-                        className={`min-h-[44px] px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-amber-400 text-zinc-950 border-amber-200 font-bold'
-                            : 'bg-[#070c14] text-zinc-200 border-white/10 hover:border-white/30'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span>{t.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            {activeTab === 'settings' && (
+              <LobbySettingsTab
+                hudSettings={hudSettings}
+                musicVolume={musicVolume}
+                isFullscreen={isFullscreen}
+                copy={copy}
+                onChangeMusicVolume={setMusicVolume}
+                onUpdateHudSettings={applyHudUpdate}
+                onToggleMute={onToggleMute}
+                onToggleFullscreen={onToggleFullscreen}
+                onOpenHudEditor={onOpenHudEditor}
+                onOpenGraphicsTab={() => handleSelectTab('graphics')}
+              />
+            )}
 
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-zinc-300">Weather Atmosphere</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {WEATHER_OPTIONS.map((w) => {
-                    const Icon = w.icon;
-                    const active = simWeather === w.id;
-                    return (
-                      <button
-                        key={w.id}
-                        type="button"
-                        onClick={() => onSelectSimWeather(w.id)}
-                        className={`min-h-[44px] px-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-2 transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-sky-400 text-zinc-950 border-sky-200 font-bold'
-                            : 'bg-[#070c14] text-zinc-200 border-white/10 hover:border-white/30'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4 shrink-0" />
-                        <span>{w.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Modern Cyber Bike & Vehicle Preset */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Bike className="w-4 h-4 text-emerald-400" />
-                  <span>Modern Cyber Bike Finish</span>
-                </h2>
-                <span className="text-xs text-zinc-300 font-medium">{selectedBike.name}</span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                {BIKE_STYLES.map((b) => {
-                  const active = simBikeStyle === b.id;
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => onSelectSimBikeStyle(b.id)}
-                      className={`min-h-[44px] px-2.5 py-2 rounded-lg border flex items-center gap-2 text-xs font-medium transition-colors ${
-                        active
-                          ? 'bg-zinc-900 border-white text-white font-bold'
-                          : 'bg-[#070c14] border-white/10 text-zinc-300 hover:border-white/30'
-                      }`}
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded shrink-0 border border-white/30"
-                        style={{ backgroundColor: b.swatchCss }}
-                      />
-                      <span className="truncate">{b.name.split(' ')[0]}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-
-          {/* Right Column (5 cols): Audio, Map Saturation, Screen Sensitivity, Performance */}
-          <section className="lg:col-span-5 space-y-5">
-            {/* Audio & Sound System */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Volume2 className="w-4 h-4 text-sky-400" />
-                  <span>Audio &amp; Sound</span>
-                </h2>
-                <button
-                  type="button"
-                  onClick={onToggleMute}
-                  className={`min-h-[36px] px-3 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap ${
-                    muted
-                      ? 'bg-red-500/20 border-red-400/50 text-red-200'
-                      : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                  }`}
-                >
-                  {muted ? 'Sound Off' : 'Sound Active'}
-                </button>
-              </div>
-
-              <label className="block space-y-1.5">
-                <div className="flex justify-between text-xs text-zinc-300">
-                  <span>Sound Effects Volume</span>
-                  <span className="font-mono font-bold text-sky-300 tabular-nums">
-                    {Math.round(hudSettings.sfxVolume * 100)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={Math.round(hudSettings.sfxVolume * 100)}
-                  onChange={(e) =>
-                    onUpdateHudSettings({
-                      ...hudSettings,
-                      sfxVolume: Number(e.target.value) / 100,
-                    })
-                  }
-                  className="w-full accent-sky-400 h-2"
-                />
-              </label>
-            </div>
-
-            {/* Screen Sensitivity (Up & Down) + Controls */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-amber-400" />
-                  <span>Screen Sensitivity &amp; Touch</span>
-                </h2>
-                <span className="font-mono text-sm font-bold text-amber-300 tabular-nums">
-                  {hudSettings.lookSensitivity.toFixed(1)}x
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label="Decrease Screen Sensitivity"
-                  onClick={() => adjustSensitivity(-0.1)}
-                  className="min-w-[44px] min-h-[44px] rounded-lg bg-[#070c14] hover:bg-zinc-800 border border-white/15 text-zinc-100 flex items-center justify-center transition-colors shrink-0"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="3.0"
-                  step="0.1"
-                  value={hudSettings.lookSensitivity}
-                  onChange={(e) =>
-                    onUpdateHudSettings({
-                      ...hudSettings,
-                      lookSensitivity: Number(e.target.value),
-                    })
-                  }
-                  className="flex-1 accent-amber-400 h-2"
-                />
-                <button
-                  type="button"
-                  aria-label="Increase Screen Sensitivity"
-                  onClick={() => adjustSensitivity(0.1)}
-                  className="min-w-[44px] min-h-[44px] rounded-lg bg-[#070c14] hover:bg-zinc-800 border border-white/15 text-zinc-100 flex items-center justify-center transition-colors shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    onUpdateHudSettings({
-                      ...hudSettings,
-                      autoSprint: !hudSettings.autoSprint,
-                    })
-                  }
-                  className={`min-h-[42px] px-3 rounded-lg border text-xs font-semibold transition-colors ${
-                    hudSettings.autoSprint
-                      ? 'bg-emerald-500/20 border-emerald-400/55 text-emerald-200'
-                      : 'bg-[#070c14] border-white/10 text-zinc-300'
-                  }`}
-                >
-                  Auto Sprint: {hudSettings.autoSprint ? 'On' : 'Off'}
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenHudEditor}
-                  className="min-h-[42px] px-3 rounded-lg bg-[#070c14] hover:bg-zinc-900 border border-white/15 text-xs font-semibold text-zinc-200 transition-colors"
-                >
-                  Edit Touch Layout
-                </button>
-              </div>
-            </div>
-
-            {/* Map Saturation & Graphics Quality */}
-            <div className="rounded-xl border border-white/10 bg-[#0b121e] p-4 sm:p-5 space-y-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-emerald-400" />
-                  <span>Map Saturation &amp; Quality</span>
-                </h2>
-                <span className="font-mono text-sm font-bold text-emerald-300 tabular-nums">
-                  {saturationPct}%
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <input
-                  type="range"
-                  min="0.8"
-                  max="1.8"
-                  step="0.05"
-                  value={hudSettings.mapSaturation ?? 1.38}
-                  onChange={(e) =>
-                    onUpdateHudSettings({
-                      ...hudSettings,
-                      mapSaturation: Number(e.target.value),
-                    })
-                  }
-                  className="w-full accent-emerald-400 h-2"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  {SATURATION_PRESETS.map((preset) => {
-                    const active =
-                      Math.abs((hudSettings.mapSaturation ?? 1.38) - preset.value) < 0.04;
-                    return (
-                      <button
-                        key={preset.label}
-                        type="button"
-                        onClick={() =>
-                          onUpdateHudSettings({
-                            ...hudSettings,
-                            mapSaturation: preset.value,
-                          })
-                        }
-                        className={`min-h-[38px] px-2 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-emerald-500 text-zinc-950 border-emerald-300 font-bold'
-                            : 'bg-[#070c14] text-zinc-300 border-white/10 hover:border-white/30'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                <div className="text-xs font-medium text-zinc-300">Graphics Performance</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {GRAPHICS_OPTIONS.map((g) => {
-                    const active = hudSettings.graphicsQuality === g.id;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() =>
-                          onUpdateHudSettings({
-                            ...hudSettings,
-                            graphicsQuality: g.id,
-                          })
-                        }
-                        className={`min-h-[40px] px-2 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-sky-500 text-zinc-950 border-sky-300 font-bold'
-                            : 'bg-[#070c14] text-zinc-300 border-white/10 hover:border-white/30'
-                        }`}
-                      >
-                        {g.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-zinc-400">
-                  {GRAPHICS_OPTIONS.find((g) => g.id === hudSettings.graphicsQuality)?.detail}
-                </p>
-              </div>
-            </div>
-
-            {/* Bottom Full-Width Launch Action */}
-            <button
-              type="button"
-              onClick={onDeploySimulator}
-              className="w-full min-h-[52px] px-6 rounded-xl bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-zinc-950 font-display text-lg font-extrabold tracking-wide flex items-center justify-center gap-2 transition-colors shadow-xl"
-            >
-              <Play className="w-5 h-5 fill-current" />
-              <span>Start World Simulator</span>
-            </button>
-          </section>
+            {activeTab === 'profile' && (
+              <LobbyProfileTab
+                simProgress={simProgress}
+                signedInUserName={signedInUserName}
+                authBusy={authBusy}
+                copy={copy}
+                onSignInGoogle={onSignInGoogle}
+                onSignOut={onSignOut}
+                onSelectResumeSaved={() => {
+                  onSelectSimStartPoi('saved_pos');
+                  onDeploySimulator();
+                }}
+              />
+            )}
+          </main>
         </div>
-      </main>
+      ) : (
+        <div className="flex-1 flex flex-col justify-end items-center pb-2 sm:pb-3 pointer-events-none">
+          <div className="pointer-events-auto w-full max-w-[920px] liquid-glass-shell liquid-prism-edge rounded-2xl px-3.5 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-glass-modal">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-bold text-cyan-200 tracking-wide">
+                  {previewMode === 'bike'
+                    ? `Cyber Bike Showcase · ${BIKE_STYLES.find((b) => b.id === simBikeStyle)?.name}`
+                    : previewMode === 'map'
+                      ? 'Live Mega-World Aerial Flyover'
+                      : 'Live Courtyard 3D Preview'}
+                </span>
+                <span className="text-[10px] text-slate-300 hidden sm:inline">
+                  Drag anywhere to orbit 360° · Scroll to zoom
+                </span>
+              </div>
+
+              {previewMode === 'bike' && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {BIKE_STYLES.map((b) => {
+                    const active = simBikeStyle === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => onSelectSimBikeStyle(b.id)}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
+                          active
+                            ? 'liquid-glass-card-active text-white'
+                            : 'bg-slate-950/50 border-white/15 text-slate-300 hover:border-white/30'
+                        }`}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-white/60"
+                          style={{ backgroundColor: b.swatchCss }}
+                        />
+                        <span>{b.name.split(' ')[0]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                data-testid="show-dashboard-btn"
+                onClick={() => {
+                  setPeek3dWorld(false);
+                  if (previewMode === 'bike') {
+                    setPreviewMode('overview');
+                    onChangeLobbyViewMode?.('overview');
+                  }
+                }}
+                className="liquid-glass-card px-3.5 py-2.5 rounded-xl text-xs font-semibold text-cyan-100 border-cyan-400/45 hover:border-cyan-300 flex items-center gap-1.5 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-cyan-300" />
+                <span>Dashboard</span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="sim-lobby-launch-btn"
+                onClick={onDeploySimulator}
+                className="liquid-cta-orange px-5 py-2.5 rounded-xl font-display text-sm sm:text-base font-bold text-slate-950 flex items-center gap-2 cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-slate-950" />
+                <span>{copy.enterWorld}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Bottom Liquid Glass Dock Navigation */}
+      <div className="w-full max-w-[1280px] mx-auto shrink-0 md:hidden">
+        <LobbyNavDock activeTab={activeTab} onSelectTab={handleSelectTab} copy={copy} />
+      </div>
     </div>
   );
 };

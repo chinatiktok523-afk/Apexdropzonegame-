@@ -1,5 +1,6 @@
 import { FireMode, WeaponId } from '../types';
 import { computeEngineAudioTargets, getEngineAudioProfile, stepDjTrackIndex } from './mansionSystems';
+import { clampMusicVolume, loadStoredMusicVolume } from './lobbyConfig';
 
 const PISTOL_MP3 =
   './assets/aistudio/pistol_sound_effects__desert_eagle_sound_effects_gun_sound_effects_MP3_160K__3edb41aa.mp3';
@@ -144,6 +145,7 @@ class TacticalAudioEngine {
   private lastHeadshotVoiceTime = 0;
   private _muted = false;
   private _sfxVolume = 0.85;
+  private _musicVolume = loadStoredMusicVolume();
   private rainSource: AudioBufferSourceNode | null = null;
   private rainGain: GainNode | null = null;
   private rainFilter: BiquadFilterNode | null = null;
@@ -168,6 +170,17 @@ class TacticalAudioEngine {
 
   public get sfxVolume(): number {
     return this._sfxVolume;
+  }
+
+  public get musicVolume(): number {
+    return this._musicVolume;
+  }
+
+  public setMusicVolume(vol: number) {
+    this._musicVolume = clampMusicVolume(vol);
+    if (this._musicVolume <= 0.005) {
+      this.stopMansionPartyMusic();
+    }
   }
 
   public setMuted(val: boolean) {
@@ -2743,7 +2756,7 @@ class TacticalAudioEngine {
    * continuously without trimming, with smooth 3D spatial distance attenuation from the 3rd floor DJ stage.
    */
   public updateMansionPartyMusic(playerX: number, playerY: number, playerZ: number) {
-    if (this._muted || this._sfxVolume <= 0.02) {
+    if (this._muted || this._sfxVolume <= 0.02 || this._musicVolume <= 0.01) {
       if (this.partyMusicSource) this.stopMansionPartyMusic();
       return;
     }
@@ -2765,7 +2778,9 @@ class TacticalAudioEngine {
     if (!ctx) return;
 
     const targetGain =
-      Math.max(0.02, Math.pow(Math.max(0, 1 - dist / maxHearingDist), 1.35)) * 0.48;
+      Math.max(0.02, Math.pow(Math.max(0, 1 - dist / maxHearingDist), 1.35)) *
+      0.52 *
+      this._musicVolume;
 
     if (!this.partyMusicGain) {
       this.partyMusicGain = ctx.createGain();

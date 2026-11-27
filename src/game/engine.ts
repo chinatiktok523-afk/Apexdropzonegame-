@@ -91,7 +91,8 @@ import {
 } from './models';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
 import { isInsidePavedBuildingPad, isOnMegaRoad } from './unifiedSimulatorArena';
-import { VehicleActor, VehicleManager } from './vehicles';
+import { buildDigitalBikeMesh, VehicleActor, VehicleManager } from './vehicles';
+import { resolveGraphicsProfile } from './lobbyConfig';
 import {
   HELICOPTER_PADS,
   MANSION_DEFAULT_SPAWN,
@@ -116,6 +117,13 @@ import {
   type SmartCityCommand,
   type SmartCitySimulationState,
 } from './smartCitySystems';
+import {
+  FUTURE_LAB_DEPARTMENTS,
+  SCIENCE_DOMES_CATALOG,
+  detectNearestScienceInteraction,
+  type ScienceDomeId,
+  type ScienceLabDepartmentId,
+} from './scienceDistrictSystems';
 
 // Pre-allocated math helpers (zero GC inside animation loop)
 const _v1 = new THREE.Vector3();
@@ -290,6 +298,7 @@ export interface EngineCallbacks {
   onPauseRequest: () => void;
   onContextLost: (lost: boolean) => void;
   onOpenSmartCityDashboard?: () => void;
+  onOpenScienceDistrict?: () => void;
 }
 
 export class ShooterEngine {
@@ -419,6 +428,7 @@ export class ShooterEngine {
   private loadoutConfig: LoadoutConfig = { ...DEFAULT_LOADOUT_CONFIG };
   private lobbyViewMode: LobbyViewMode = 'overview';
   private lobbyInspectYaw = 0;
+  private lobbyBikeZoom = 1.0;
   private lobbyWeaponInspectYaw = 0.65;
   private lobbyWeaponInspectPitch = 0.14;
   private lobbyPreviewItem: WeaponId | 'grenade' = 'm4a1';
@@ -426,6 +436,8 @@ export class ShooterEngine {
   private lobbyCamLook = new THREE.Vector3(-8.0, 1.15, 14.0);
   private lobbyCamInitialized = false;
   private lobbyShowcaseGroup = new THREE.Group();
+  private lobbyBikeGroup: THREE.Group | null = null;
+  private lobbyBikeBuiltStyle: BikeStyleId | null = null;
   private lobbyWeaponMeshes: Partial<Record<WeaponId | 'grenade', THREE.Group>> = {};
   private difficulty: Difficulty = 'veteran';
   private perspective: CameraPerspective = 'first';
@@ -451,6 +463,9 @@ export class ShooterEngine {
     wid === 'sniper' ? 3 : 0,
   );
   private recoilKickZ = 0;
+  private recoilRoll = 0;
+  private gunFovPunch = 0;
+  private reloadSlapBump = 0;
   private fireModes: Record<WeaponId, FireMode> = createWeaponRecord(
     (wid) => WEAPONS[wid].defaultFireMode,
   );
@@ -853,8 +868,9 @@ export class ShooterEngine {
     ]);
     if (this.disposed) return;
 
-    const isInitHigh = this.hudSettings.graphicsQuality === 'high' && !this.isSoftwareGl;
-    if (isInitHigh) {
+    const gfxInit = resolveGraphicsProfile(this.hudSettings, this.isSoftwareGl);
+    const wantReflections = gfxInit.reflectionQuality !== 'off' && !this.isSoftwareGl;
+    if (wantReflections) {
       report(50, 'Lighting & IBL', 'Baking studio environment reflection map...');
       await this.yieldFrame();
       if (this.disposed) return;
@@ -864,18 +880,19 @@ export class ShooterEngine {
       roomEnv.dispose();
       pmrem.dispose();
     }
-    this.scene.environment = isInitHigh && this.envRT ? this.envRT.texture : null;
-    this.scene.environmentIntensity = 0.4;
+    this.scene.environment = wantReflections && this.envRT ? this.envRT.texture : null;
+    this.scene.environmentIntensity = gfxInit.reflectionQuality === 'high' ? 0.42 : 0.24;
 
     // 3. Generate procedural textures & shader materials for active quality tier
-    const q = this.hudSettings.graphicsQuality;
+    const q = gfxInit.mapQuality;
+    const texQ = gfxInit.textureQuality;
     this.builtQuality = q;
-    report(62, 'Procedural Textures', `Generating ${q.toUpperCase()} surface maps...`);
+    report(62, 'Procedural Textures', `Generating ${texQ.toUpperCase()} surface maps...`);
     await this.yieldFrame();
     if (this.disposed) return;
 
     const maxAniso = this.renderer.capabilities.getMaxAnisotropy();
-    this.textures = createProceduralTextures(maxAniso, q);
+    this.textures = createProceduralTextures(maxAniso, texQ);
     this.materials = createMaterialLibrary(this.textures, this.isSoftwareGl, q);
     this.bulletHoleMat?.dispose();
     this.bulletHoleMat = new THREE.MeshBasicMaterial({
@@ -962,25 +979,37 @@ export class ShooterEngine {
   }
 
   public setHudSettings(settings: HudSettings) {
-    const prevQuality = this.hudSettings.graphicsQuality;
-    const prevBloom = this.hudSettings.bloomEnabled;
-    const prevSat = this.hudSettings.mapSaturation;
+    const prevProfile = resolveGraphicsProfile(this.hudSettings, this.isSoftwareGl);
+    const nextProfile = resolveGraphicsProfile(settings, this.isSoftwareGl);
     this.hudSettings = { ...settings };
-    if (
-      prevQuality !== settings.graphicsQuality ||
-      prevBloom !== settings.bloomEnabled ||
-      prevSat !== settings.mapSaturation
-    ) {
+    const visualChanged =
+      prevProfile.preset !== nextProfile.preset ||
+      prevProfile.bloomEnabled !== nextProfile.bloomEnabled ||
+      prevProfile.mapSaturation !== nextProfile.mapSaturation ||
+      prevProfile.shadowQuality !== nextProfile.shadowQuality ||
+      prevProfile.lightingQuality !== nextProfile.lightingQuality ||
+      prevProfile.reflectionQuality !== nextProfile.reflectionQuality ||
+      prevProfile.textureQuality !== nextProfile.textureQuality ||
+      prevProfile.mapQuality !== nextProfile.mapQuality ||
+      prevProfile.drawDistance !== nextProfile.drawDistance;
+
+    if (visualChanged) {
       this.adaptiveTier = 0;
       this.adaptiveSampleTime = 0;
       this.adaptiveSampleFrames = 0;
       this.adaptiveHighFpsTime = 0;
       this.applyGraphicsQuality();
-      if (prevQuality !== settings.graphicsQuality) {
-        this.arena?.realisticTargets?.grass?.setQuality(settings.graphicsQuality, this.isSoftwareGl);
-        if (this.initialized && this.phase === 'menu' && this.builtQuality !== settings.graphicsQuality) {
-          this.rebuildWorld(this.mapId);
-        }
+      if (prevProfile.mapQuality !== nextProfile.mapQuality || prevProfile.preset !== nextProfile.preset) {
+        this.arena?.realisticTargets?.grass?.setQuality(nextProfile.mapQuality, this.isSoftwareGl);
+      }
+      if (
+        this.initialized &&
+        this.phase === 'menu' &&
+        (prevProfile.mapQuality !== nextProfile.mapQuality ||
+          prevProfile.textureQuality !== nextProfile.textureQuality ||
+          prevProfile.preset !== nextProfile.preset)
+      ) {
+        this.rebuildWorld(this.mapId);
       }
     }
   }
@@ -990,11 +1019,12 @@ export class ShooterEngine {
     const isMapLobby = this.phase === 'menu' && this.lobbyViewMode === 'map';
     const isSniperScope =
       this.phase === 'playing' && this.activeWeapon === 'sniper' && this.adsBlend > 0.45;
-    const distMul = isMapLobby ? 3.2 : isSniperScope ? 2.1 : this.adaptiveDistMul;
+    const gfx = resolveGraphicsProfile(this.hudSettings, this.isSoftwareGl);
+    const distMul = (isMapLobby ? 3.2 : isSniperScope ? 2.1 : this.adaptiveDistMul) * gfx.drawDistance;
 
     const streaming = this.arena?.worldStreaming;
     if (streaming) {
-      streaming.update(this.camera, this.playerPos, distMul, isMapLobby, this.hudSettings.graphicsQuality);
+      streaming.update(this.camera, this.playerPos, distMul, isMapLobby, gfx.mapQuality);
     }
 
     const lodGroups = this.arena?.dayNightTargets?.lodDetailGroups;
@@ -1059,16 +1089,17 @@ export class ShooterEngine {
   }
 
   private applyGraphicsQuality() {
-    const sat = THREE.MathUtils.clamp(this.hudSettings.mapSaturation ?? 1.38, 0.75, 1.9);
+    const gfx = resolveGraphicsProfile(this.hudSettings, this.isSoftwareGl);
+    const sat = gfx.mapSaturation;
     // Keep ACES Filmic exposure balanced so white surfaces retain shading instead of clipping to pure white
     this.renderer.toneMappingExposure = THREE.MathUtils.clamp(0.94 + (sat - 1.38) * 0.14, 0.8, 1.08);
 
-    const q = this.hudSettings.graphicsQuality;
+    const q = gfx.preset;
     const isLow = q === 'low' || this.isSoftwareGl;
     const isMed = q === 'medium' && !this.isSoftwareGl;
     const isHigh = q === 'high' && !this.isSoftwareGl;
     this.adaptiveTier = 0;
-    this.adaptiveDistMul = isLow ? 0.45 : isMed ? 0.65 : 1.0;
+    this.adaptiveDistMul = (isLow ? 0.45 : isMed ? 0.65 : 1.0) * gfx.drawDistance;
 
     const dpr = window.devicePixelRatio || 1;
     let targetRatio = 1;
@@ -1077,66 +1108,72 @@ export class ShooterEngine {
     } else if (isHigh) {
       targetRatio = Math.min(dpr, 1.75);
     } else {
-      targetRatio = Math.min(dpr, 1.0);
+      targetRatio = Math.min(dpr, 1.15);
     }
     this.renderer.setPixelRatio(targetRatio);
 
-    if (isHigh && !this.envRT) {
+    const wantReflections = gfx.reflectionQuality !== 'off' && !this.isSoftwareGl;
+    if (wantReflections && !this.envRT) {
       const pmrem = new THREE.PMREMGenerator(this.renderer);
       const roomEnv = new RoomEnvironment();
       this.envRT = pmrem.fromScene(roomEnv, 0.04);
       roomEnv.dispose();
       pmrem.dispose();
     }
-    this.scene.environment = isHigh ? (this.envRT?.texture ?? null) : null;
+    this.scene.environment = wantReflections ? (this.envRT?.texture ?? null) : null;
+    this.scene.environmentIntensity = gfx.reflectionQuality === 'high' ? 0.42 : 0.24;
 
-    const shadowsOn = isHigh || (isMed && !this.isMobileDevice);
+    const shadowsOn =
+      !this.isSoftwareGl &&
+      gfx.shadowQuality !== 'off' &&
+      (gfx.shadowQuality === 'high' || gfx.shadowQuality === 'medium' || !this.isMobileDevice);
     this.renderer.shadowMap.enabled = shadowsOn;
     this.keyLight.castShadow = shadowsOn;
-    const nextShadowType = isHigh ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+    const nextShadowType = gfx.shadowQuality === 'high' ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
     if (this.renderer.shadowMap.type !== nextShadowType) {
       this.renderer.shadowMap.type = nextShadowType;
       this.renderer.shadowMap.needsUpdate = true;
     }
 
-    const mapSize = isHigh ? 1536 : 512;
+    const mapSize = gfx.shadowQuality === 'high' ? 1536 : gfx.shadowQuality === 'medium' ? 1024 : 512;
     if (this.keyLight.shadow.mapSize.x !== mapSize) {
       this.keyLight.shadow.map?.dispose();
       this.keyLight.shadow.map = null;
       this.keyLight.shadow.mapSize.set(mapSize, mapSize);
     }
 
-    const frustum = isHigh ? 60 : 34;
+    const frustum = gfx.shadowQuality === 'high' ? 60 : gfx.shadowQuality === 'medium' ? 46 : 34;
     this.keyLight.shadow.camera.left = -frustum;
     this.keyLight.shadow.camera.right = frustum;
     this.keyLight.shadow.camera.top = frustum;
     this.keyLight.shadow.camera.bottom = -frustum;
     this.keyLight.shadow.camera.updateProjectionMatrix();
 
-    const nextFar =
+    const baseFar =
       this.phase === 'menu' && this.lobbyViewMode === 'map'
         ? 1650
         : isLow
           ? 420
           : isHigh
             ? 1400
-            : 640;
+            : 680;
+    const nextFar = Math.round(baseFar * gfx.drawDistance);
     this.baseCameraFar = nextFar;
     if (this.camera.far !== nextFar) {
       this.camera.far = nextFar;
       this.camera.updateProjectionMatrix();
     }
-    this.rimLight.visible = isHigh;
-    this.muzzleLight.visible = isHigh;
-    this.explosionLight.visible = isHigh;
+    this.rimLight.visible = gfx.lightingQuality !== 'low' && !this.isSoftwareGl;
+    this.muzzleLight.visible = gfx.lightingQuality === 'high' && !this.isSoftwareGl;
+    this.explosionLight.visible = gfx.lightingQuality !== 'low' && !this.isSoftwareGl;
 
     const grass = this.arena?.realisticTargets?.grass;
     if (grass) {
-      grass.setQuality(q, this.isSoftwareGl);
+      grass.setQuality(gfx.mapQuality, this.isSoftwareGl);
       grass.mesh.visible = true;
     }
 
-    const enableBloom = isHigh && (this.hudSettings.bloomEnabled ?? true);
+    const enableBloom = !this.isSoftwareGl && gfx.bloomEnabled && (isHigh || isMed);
     this.usePostProcessing = enableBloom;
     if (enableBloom) {
       const w = this.container.clientWidth || window.innerWidth;
@@ -1228,6 +1265,45 @@ export class ShooterEngine {
     this.lobbyShowcaseGroup.position.set(-8.0, 6.8, 14.0);
     this.lobbyShowcaseGroup.visible = this.phase === 'menu' && this.lobbyViewMode === 'weapon';
     this.scene.add(this.lobbyShowcaseGroup);
+    this.buildLobbyBikeShowcase();
+  }
+
+  private buildLobbyBikeShowcase() {
+    const sharedSet = this.materials?.sharedSet;
+    if (this.lobbyBikeGroup) {
+      disposeObject3DResources(this.lobbyBikeGroup, sharedSet);
+      this.scene.remove(this.lobbyBikeGroup);
+      this.lobbyBikeGroup = null;
+    }
+    const bikeContainer = new THREE.Group();
+    const builtBike = buildDigitalBikeMesh(
+      'lobby_showcase_bike',
+      this.isSoftwareGl,
+      this.arena?.displays ?? null,
+      this.bikeStyle,
+    );
+    bikeContainer.add(builtBike.group);
+    const activeStyle = BIKE_STYLES.find((b) => b.id === this.bikeStyle) ?? BIKE_STYLES[0];
+    const plinthRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.55, 1.72, 48),
+      new THREE.MeshBasicMaterial({
+        color: activeStyle.neonHex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.72,
+        toneMapped: false,
+      }),
+    );
+    plinthRing.rotation.x = -Math.PI / 2;
+    plinthRing.position.y = 0.03;
+    bikeContainer.add(plinthRing);
+
+    const gy = this.arena ? this.arena.groundHeightAt(-5.4, 13.8) : 0;
+    bikeContainer.position.set(-5.4, gy, 13.8);
+    bikeContainer.visible = this.phase === 'menu' && (this.lobbyViewMode === 'bike' || this.lobbyViewMode === 'overview');
+    this.scene.add(bikeContainer);
+    this.lobbyBikeGroup = bikeContainer;
+    this.lobbyBikeBuiltStyle = this.bikeStyle;
   }
 
   private syncLobbyPreviewState() {
@@ -1243,6 +1319,13 @@ export class ShooterEngine {
       if (m) m.visible = this.lobbyPreviewItem === item;
     });
     this.lobbyShowcaseGroup.visible = this.phase === 'menu' && this.lobbyViewMode === 'weapon';
+    if (this.lobbyBikeBuiltStyle !== this.bikeStyle && this.initialized) {
+      this.buildLobbyBikeShowcase();
+    }
+    if (this.lobbyBikeGroup) {
+      this.lobbyBikeGroup.visible =
+        this.phase === 'menu' && (this.lobbyViewMode === 'bike' || this.lobbyViewMode === 'overview');
+    }
   }
 
   private rebuildWorld(mapId: MapId = this.mapId) {
@@ -1267,6 +1350,12 @@ export class ShooterEngine {
     if (this.lobbyShowcaseGroup.parent) {
       disposeObject3DResources(this.lobbyShowcaseGroup, sharedSet);
       this.scene.remove(this.lobbyShowcaseGroup);
+    }
+    if (this.lobbyBikeGroup) {
+      disposeObject3DResources(this.lobbyBikeGroup, sharedSet);
+      this.scene.remove(this.lobbyBikeGroup);
+      this.lobbyBikeGroup = null;
+      this.lobbyBikeBuiltStyle = null;
     }
     this.lobbyWeaponMeshes = {};
 
@@ -1598,6 +1687,9 @@ export class ShooterEngine {
     this.sniperZoomIndex = 3;
     this.weaponZoomIndices = createWeaponRecord((wid) => (wid === 'sniper' ? 3 : 0));
     this.recoilKickZ = 0;
+    this.recoilRoll = 0;
+    this.gunFovPunch = 0;
+    this.reloadSlapBump = 0;
     this.fireModes = createWeaponRecord(
       (wid) => this.loadoutConfig.preferredFireModes[wid] ?? WEAPONS[wid].defaultFireMode,
     );
@@ -1670,6 +1762,9 @@ export class ShooterEngine {
     }
     if (opts.bikeStyle !== undefined) {
       this.bikeStyle = opts.bikeStyle;
+      if (this.phase === 'menu' && this.initialized) {
+        this.buildLobbyBikeShowcase();
+      }
     }
     this.envSnapshot = this.envCycle.getSnapshot();
     if (
@@ -1844,7 +1939,19 @@ export class ShooterEngine {
       if (typeof document !== 'undefined' && document.pointerLockElement) {
         document.exitPointerLock?.();
       }
-      this.callbacks.onOpenSmartCityDashboard?.();
+      if (item.id.startsWith('sci_')) {
+        if (item.id === 'sci_future_lab_portal') {
+          this.arena?.scienceDistrict?.setActiveBuilding('future_lab');
+        } else if (item.id === 'sci_museum_portal') {
+          this.arena?.scienceDistrict?.setActiveBuilding('science_museum');
+        } else {
+          const domeId = item.id.slice(4) as ScienceDomeId;
+          this.arena?.scienceDistrict?.setActiveBuilding(domeId);
+        }
+        this.callbacks.onOpenScienceDistrict?.();
+      } else {
+        this.callbacks.onOpenSmartCityDashboard?.();
+      }
     }
     const feedback = item.trigger({
       healPlayer: (hp, stamina) => {
@@ -1920,6 +2027,90 @@ export class ShooterEngine {
 
   public getSmartCityState(): SmartCitySimulationState | null {
     return this.arena?.smartCity?.getState() ?? null;
+  }
+
+  public sendScienceDistrictCommand(
+    cmd:
+      | { type: 'enter_future_lab' }
+      | { type: 'enter_museum' }
+      | { type: 'enter_dome'; domeId: ScienceDomeId }
+      | { type: 'exit_building' }
+      | { type: 'explore_department'; deptId: ScienceLabDepartmentId }
+      | { type: 'toggle_dome_boost'; domeId: ScienceDomeId }
+      | { type: 'toggle_lab_robots' }
+      | { type: 'toggle_lab_overdrive' }
+      | { type: 'set_elevator_floor'; floor: 1 | 2 | 3 },
+  ): void {
+    const sd = this.arena?.scienceDistrict;
+    if (!sd) return;
+    const moveInside = (x: number, y: number, z: number, yaw = 0) => {
+      this.seatedSpot = null;
+      this.slideTimer = 0;
+      this.isCrouchToggle = false;
+      this.breachTimer = 0;
+      this.playerVel.set(0, 0, 0);
+      this.playerPos.set(x, y, z);
+      this.yaw = yaw;
+      this.targetYaw = yaw;
+      this.smoothedGroundY = y;
+      this.smoothedEyeOffset = 1.62;
+      this.smoothedEyeY = y + 1.62;
+      this.isGrounded = true;
+      this.snapCameraAndRigImmediate();
+    };
+    if (cmd.type === 'enter_future_lab') {
+      sd.setActiveBuilding('future_lab');
+      moveInside(64, 0.22, -598.5, 0);
+      soundEngine.playInteractChime('door');
+      this.interactFeedback = 'Entered Future Lab Atrium';
+    } else if (cmd.type === 'enter_museum') {
+      sd.setActiveBuilding('science_museum');
+      moveInside(168, 0.22, -598.5, 0);
+      soundEngine.playInteractChime('door');
+      this.interactFeedback = 'Entered Science Museum Rotunda';
+    } else if (cmd.type === 'enter_dome') {
+      const dome = SCIENCE_DOMES_CATALOG.find((d) => d.id === cmd.domeId);
+      if (dome) {
+        sd.setActiveBuilding(dome.id);
+        moveInside(dome.x, 0.56, dome.z + dome.radius - 1.35, dome.entryYaw);
+        soundEngine.playInteractChime('door');
+        this.interactFeedback = `Exploring ${dome.title}`;
+      }
+    } else if (cmd.type === 'exit_building') {
+      sd.setActiveBuilding('exterior');
+      moveInside(118, 0.25, -496, 0);
+      soundEngine.playInteractChime('door');
+      this.interactFeedback = 'Exited to Science Plaza Promenade';
+    } else if (cmd.type === 'explore_department') {
+      const dept = FUTURE_LAB_DEPARTMENTS.find((d) => d.id === cmd.deptId);
+      if (dept) {
+        sd.setActiveBuilding('future_lab');
+        sd.setActiveDepartment(dept.id);
+        moveInside(dept.x + (dept.x < 64 ? 3.5 : -3.5), dept.y + 0.25, dept.z + 1.5, dept.viewYaw);
+        soundEngine.playInteractChime('shop');
+        this.interactFeedback = `${dept.floor}F · ${dept.name}`;
+      }
+    } else if (cmd.type === 'toggle_dome_boost') {
+      const on = sd.toggleDomeBoost(cmd.domeId);
+      soundEngine.playInteractChime('shop');
+      this.interactFeedback = on ? 'Exhibit Animation Activated' : 'Exhibit Normal Speed';
+    } else if (cmd.type === 'toggle_lab_robots') {
+      const on = sd.toggleLabRobots();
+      soundEngine.playInteractChime('shop');
+      this.interactFeedback = on ? 'Lab Humanoid Robots Active' : 'Lab Robots Docked';
+    } else if (cmd.type === 'toggle_lab_overdrive') {
+      const on = sd.toggleLabOverdrive();
+      soundEngine.playInteractChime('shop');
+      this.interactFeedback = on ? 'Reactor & Holograms Overclocked' : 'Standard Lab Power';
+    } else if (cmd.type === 'set_elevator_floor') {
+      sd.setActiveBuilding('future_lab');
+      sd.setElevatorFloor(cmd.floor);
+      moveInside(49, (cmd.floor - 1) * 5.6 + 0.25, -618, Math.PI * 0.5);
+      soundEngine.playInteractChime('door');
+      this.interactFeedback = `Glass Elevator · Level ${cmd.floor}F`;
+    }
+    this.interactFeedbackTimer = 3.2;
+    this.emitHud();
   }
 
   private stepWestCityTriggers(dt: number, drivenVehicle: VehicleActor | null) {
@@ -2322,9 +2513,17 @@ export class ShooterEngine {
         maxZBound,
       );
     }
-    if (opts.zoom !== undefined) this.droneZoom = THREE.MathUtils.clamp(opts.zoom, 0.35, 1.85);
+    if (opts.zoom !== undefined) {
+      this.droneZoom = THREE.MathUtils.clamp(opts.zoom, 0.35, 1.85);
+      if (this.lobbyViewMode === 'bike') {
+        this.lobbyBikeZoom = THREE.MathUtils.clamp(opts.zoom, 0.6, 1.65);
+      }
+    }
     if (opts.zoomDelta !== undefined) {
       this.droneZoom = THREE.MathUtils.clamp(this.droneZoom + opts.zoomDelta, 0.35, 1.85);
+      if (this.lobbyViewMode === 'bike') {
+        this.lobbyBikeZoom = THREE.MathUtils.clamp(this.lobbyBikeZoom + opts.zoomDelta, 0.6, 1.65);
+      }
     }
     if (opts.orbitDelta !== undefined) this.droneOrbitYaw += opts.orbitDelta;
   }
@@ -3139,6 +3338,7 @@ export class ShooterEngine {
       return;
     }
     this.lobbyShowcaseGroup.visible = false;
+    if (this.lobbyBikeGroup) this.lobbyBikeGroup.visible = false;
     const drivenVeh = this.activeVehicleId ? this.vehicleManager.getById(this.activeVehicleId) : null;
     const driving = Boolean(drivenVeh);
     const isFirst = this.perspective === 'first' && !driving;
@@ -5116,10 +5316,16 @@ export class ShooterEngine {
     }
 
     const isBurstMode = this.fireModes[this.activeWeapon] === 'burst';
-    const adsRecoilMul = (isAds ? 0.65 : 1.0) * (isBurstMode ? 0.76 : 1.0);
+    const adsRecoilMul = (isAds ? 0.58 : 1.0) * (isBurstMode ? 0.78 : 1.0);
     this.recoilPitchOffset += spec.recoilPitch * adsRecoilMul;
     this.recoilYawOffset += (Math.random() - 0.5) * 2 * spec.recoilYaw * adsRecoilMul;
-    this.recoilKickZ = Math.min(0.14, this.recoilKickZ + 0.032 * spec.hitEffectScale);
+    this.recoilKickZ = Math.min(0.18, this.recoilKickZ + (isAds ? 0.034 : 0.056) * spec.hitEffectScale);
+    this.recoilRoll = THREE.MathUtils.clamp(
+      this.recoilRoll + (Math.random() - 0.42) * 0.14 * adsRecoilMul * spec.hitEffectScale,
+      -0.18,
+      0.18,
+    );
+    this.gunFovPunch = Math.min(2.4, this.gunFovPunch + (isAds ? 0.45 : 1.05) * spec.hitEffectScale);
 
     if (this.ammoInMag[this.activeWeapon] <= 0 && this.reserveAmmo[this.activeWeapon] > 0) {
       this.burstShotsRemaining = 0;
@@ -5276,7 +5482,7 @@ export class ShooterEngine {
     slot.mesh.material = this.getTracerMat(colorHex);
     slot.mesh.visible = true;
     slot.mesh.position.copy(start);
-    slot.mesh.scale.set(0.75 + 0.55 * scale, 0.75 + 0.55 * scale, 0.8 + 0.4 * scale);
+    slot.mesh.scale.set(0.95 + 0.68 * scale, 0.95 + 0.68 * scale, 1.15 + 0.65 * scale);
     slot.mesh.lookAt(end);
 
     _v4.subVectors(end, start);
@@ -5284,8 +5490,8 @@ export class ShooterEngine {
     if (dist > 1e-4) _v4.divideScalar(dist);
     else _v4.set(0, 0, -1);
 
-    const speed = 220;
-    const maxLife = Math.min(0.35, Math.max(0.03, dist / speed));
+    const speed = 265;
+    const maxLife = Math.min(0.32, Math.max(0.028, dist / speed));
     slot.velocity.copy(_v4).multiplyScalar(speed);
     slot.life = maxLife;
     slot.maxLife = maxLife;
@@ -6031,13 +6237,13 @@ export class ShooterEngine {
   private afterDrawSoftwareGl(cb: () => void) {
     const gl = this.renderer.getContext() as WebGL2RenderingContext | null;
     if (!gl || typeof gl.fenceSync !== 'function') {
-      this.frameId = window.setTimeout(cb, 16);
+      this.frameId = window.setTimeout(cb, 64);
       return;
     }
     const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
     gl.flush();
     if (!sync) {
-      this.frameId = window.setTimeout(cb, 16);
+      this.frameId = window.setTimeout(cb, 64);
       return;
     }
     let checks = 0;
@@ -6052,18 +6258,18 @@ export class ShooterEngine {
       }
       checks++;
       const syncState = gl.getSyncParameter(sync, gl.SYNC_STATUS);
-      if (syncState === gl.UNSIGNALED && checks < 3) {
-        this.frameId = window.setTimeout(poll, 4);
+      if (syncState === gl.UNSIGNALED && checks < 5) {
+        this.frameId = window.setTimeout(poll, 8);
       } else {
         try {
           gl.deleteSync(sync);
         } catch {
           // ignore
         }
-        this.frameId = window.setTimeout(cb, 16);
+        this.frameId = window.setTimeout(cb, 64);
       }
     };
-    this.frameId = window.setTimeout(poll, 4);
+    this.frameId = window.setTimeout(poll, 8);
   }
 
   private updateMenuCamera(dt: number) {
@@ -6142,11 +6348,21 @@ export class ShooterEngine {
 
     // Update Weapon Showcase Turntable
     const isWeaponView = this.lobbyViewMode === 'weapon';
+    const isBikeView = this.lobbyViewMode === 'bike';
     this.lobbyShowcaseGroup.visible = isWeaponView;
     if (isWeaponView) {
       this.lobbyShowcaseGroup.position.set(stageX, groundY + 7.2, stageZ);
       this.lobbyShowcaseGroup.rotation.y = this.lobbyWeaponInspectYaw + this.elapsedTime * 0.25;
       this.lobbyShowcaseGroup.rotation.x = this.lobbyWeaponInspectPitch;
+    }
+
+    if (this.lobbyBikeGroup) {
+      this.lobbyBikeGroup.visible = isBikeView || this.lobbyViewMode === 'overview';
+      const bikeGroundY = this.arena ? this.arena.groundHeightAt(-5.4, 13.8) : groundY;
+      this.lobbyBikeGroup.position.set(-5.4, bikeGroundY, 13.8);
+      this.lobbyBikeGroup.rotation.y = isBikeView
+        ? -0.45 + this.lobbyInspectYaw + this.elapsedTime * 0.26
+        : -0.68;
     }
 
     // Target Camera Position & LookAt per Lobby View Mode
@@ -6157,6 +6373,16 @@ export class ShooterEngine {
       const orbitDrift = Math.sin(this.elapsedTime * 0.35) * 0.22;
       _camPos.set(stageX + 0.55 + orbitDrift, groundY + 1.32, stageZ + 3.4);
       _camTarget.set(stageX, groundY + 1.05, stageZ);
+    } else if (isBikeView) {
+      const bikeGroundY = this.arena ? this.arena.groundHeightAt(-5.4, 13.8) : groundY;
+      const orbit = 0.62 + this.lobbyInspectYaw * 0.35;
+      const dist = 3.3 * this.lobbyBikeZoom;
+      _camPos.set(
+        -5.4 + Math.cos(orbit) * dist,
+        bikeGroundY + 1.24 * this.lobbyBikeZoom + Math.sin(this.elapsedTime * 0.45) * 0.05,
+        13.8 + Math.sin(orbit) * dist,
+      );
+      _camTarget.set(-5.4, bikeGroundY + 0.52, 13.8);
     } else if (this.lobbyViewMode === 'map') {
       const baseDist = 115 * this.droneZoom;
       const baseHeight = 62 * this.droneZoom;
@@ -6167,11 +6393,11 @@ export class ShooterEngine {
       _camPos.set(cx + Math.cos(ang) * baseDist, gy + baseHeight, cz + Math.sin(ang) * baseDist);
       _camTarget.set(cx, gy + 2.0, cz);
     } else {
-      // 'overview': Soldier framed cleanly inside the living compound (buildings, containers, watchtower, roads, clouds)
+      // 'overview': Soldier & Cyber Bike framed cleanly inside the living Mega-World compound
       const camDriftX = Math.sin(this.elapsedTime * 0.28) * 0.55;
       const camDriftY = Math.cos(this.elapsedTime * 0.36) * 0.12;
-      _camPos.set(stageX + 2.4 + camDriftX, groundY + 1.75 + camDriftY, stageZ + 5.1);
-      _camTarget.set(stageX - 0.55, groundY + 1.25, stageZ - 4.0);
+      _camPos.set(stageX + 2.6 + camDriftX, groundY + 1.78 + camDriftY, stageZ + 5.25);
+      _camTarget.set(stageX + 0.45, groundY + 1.18, stageZ - 3.6);
     }
 
     if (!this.lobbyCamInitialized) {
@@ -6179,7 +6405,8 @@ export class ShooterEngine {
       this.lobbyCamLook.copy(_camTarget);
       this.lobbyCamInitialized = true;
     } else {
-      const dampRate = this.lobbyViewMode === 'weapon' ? 10 : 5.5;
+      const dampRate =
+        this.lobbyViewMode === 'weapon' ? 10 : this.lobbyViewMode === 'bike' ? 6.5 : 4.8;
       this.lobbyCamPos.x = THREE.MathUtils.damp(this.lobbyCamPos.x, _camPos.x, dampRate, dt);
       this.lobbyCamPos.y = THREE.MathUtils.damp(this.lobbyCamPos.y, _camPos.y, dampRate, dt);
       this.lobbyCamPos.z = THREE.MathUtils.damp(this.lobbyCamPos.z, _camPos.z, dampRate, dt);
@@ -6188,7 +6415,8 @@ export class ShooterEngine {
       this.lobbyCamLook.z = THREE.MathUtils.damp(this.lobbyCamLook.z, _camTarget.z, dampRate, dt);
     }
 
-    const desiredFov = this.lobbyViewMode === 'weapon' ? 46 : 62;
+    const desiredFov =
+      this.lobbyViewMode === 'weapon' ? 46 : this.lobbyViewMode === 'bike' ? 54 : 62;
     if (Math.abs(this.camera.fov - desiredFov) > 0.05) {
       this.camera.fov = THREE.MathUtils.damp(this.camera.fov, desiredFov, 9, dt);
       this.camera.updateProjectionMatrix();
@@ -6229,6 +6457,12 @@ export class ShooterEngine {
         drivenForPortals ? drivenForPortals.position : null,
         this.camera.position,
         transitActors,
+      );
+      this.arena.scienceDistrict?.update(
+        dt,
+        this.elapsedTime,
+        this.playerPos,
+        this.camera.position,
       );
       this.arena.displays?.updateSpatialAudio(this.camera.position, this.activeVehicleId, this.hudSettings.muted);
       this.vehicleManager.updateDisplaysAudio(this.camera.position, this.activeVehicleId, this.hudSettings.muted);
@@ -7279,21 +7513,25 @@ export class ShooterEngine {
 
       if (reloadProgress < 0.25) {
         this.reloadStage = 'Mag Out';
-        if (activeVm) activeVm.magGroup.position.y = -(reloadProgress / 0.25) * 0.18;
+        if (activeVm) activeVm.magGroup.position.y = -(reloadProgress / 0.25) * 0.2;
         if (reloadProgress >= 0.20 && !this.reloadMagDropped) {
           this.reloadMagDropped = true;
           soundEngine.playMagDrop();
           this.spawnDroppingMagazine();
           if (activeVm) activeVm.magGroup.visible = false;
         }
-      } else if (reloadProgress < 0.58) {
+      } else if (reloadProgress < 0.56) {
         this.reloadStage = 'Fresh Mag';
         if (activeVm) activeVm.magGroup.visible = false;
       } else if (reloadProgress < 0.78) {
         this.reloadStage = 'Insert';
+        const insP = (reloadProgress - 0.56) / 0.22;
         if (activeVm) {
           activeVm.magGroup.visible = true;
-          activeVm.magGroup.position.y = THREE.MathUtils.lerp(-0.18, 0, (reloadProgress - 0.58) / 0.20);
+          activeVm.magGroup.position.y = THREE.MathUtils.lerp(-0.2, 0, insP);
+        }
+        if (insP > 0.88) {
+          this.reloadSlapBump = Math.max(this.reloadSlapBump, 0.022);
         }
       } else {
         this.reloadStage = 'Chamber';
@@ -7301,7 +7539,7 @@ export class ShooterEngine {
           activeVm.magGroup.visible = true;
           activeVm.magGroup.position.y = 0;
           const rackP = (reloadProgress - 0.78) / 0.22;
-          const boltPull = Math.sin(rackP * Math.PI) * 0.055;
+          const boltPull = Math.sin(rackP * Math.PI) * 0.062;
           activeVm.boltMesh.position.z = boltPull;
         }
         if (reloadProgress >= 0.80 && !this.reloadBoltRacked) {
@@ -7385,15 +7623,18 @@ export class ShooterEngine {
     else if (horizSpeed > 0.65) this.animState = 'walk';
     else this.animState = 'idle';
 
-    this.recoilPitchOffset = THREE.MathUtils.damp(this.recoilPitchOffset, 0, 12, dt);
-    this.recoilYawOffset = THREE.MathUtils.damp(this.recoilYawOffset, 0, 12, dt);
-    this.recoilKickZ = THREE.MathUtils.damp(this.recoilKickZ, 0, 16, dt);
-    this.screenShake = THREE.MathUtils.damp(this.screenShake, 0, 12, dt);
-    this.crosshairBloom = Math.max(0, this.crosshairBloom - dt * 0.085);
+    this.recoilPitchOffset = THREE.MathUtils.damp(this.recoilPitchOffset, 0, 14, dt);
+    this.recoilYawOffset = THREE.MathUtils.damp(this.recoilYawOffset, 0, 14, dt);
+    this.recoilKickZ = THREE.MathUtils.damp(this.recoilKickZ, 0, 20, dt);
+    this.recoilRoll = THREE.MathUtils.damp(this.recoilRoll, 0, 18, dt);
+    this.gunFovPunch = THREE.MathUtils.damp(this.gunFovPunch, 0, 22, dt);
+    this.reloadSlapBump = THREE.MathUtils.damp(this.reloadSlapBump, 0, 20, dt);
+    this.screenShake = THREE.MathUtils.damp(this.screenShake, 0, 14, dt);
+    this.crosshairBloom = Math.max(0, this.crosshairBloom - dt * 0.095);
 
     if (this.muzzleFlashTimer > 0) {
       this.muzzleFlashTimer -= dt;
-      this.muzzleLight.intensity = THREE.MathUtils.damp(this.muzzleLight.intensity, 0, 28, dt);
+      this.muzzleLight.intensity = THREE.MathUtils.damp(this.muzzleLight.intensity, 0, 30, dt);
     } else {
       this.muzzleLight.intensity = 0;
     }
@@ -7403,19 +7644,20 @@ export class ShooterEngine {
     }
 
     const isAds = this.isCurrentlyAds();
-    this.adsBlend = THREE.MathUtils.damp(this.adsBlend, isAds ? 1 : 0, 14 * (spec.adsSpeedMul ?? 1), dt);
+    this.adsBlend = THREE.MathUtils.damp(this.adsBlend, isAds ? 1 : 0, 15 * (spec.adsSpeedMul ?? 1), dt);
 
     const zoomOpts = WEAPON_ZOOM_OPTIONS[this.activeWeapon];
     const activeZoom = zoomOpts[this.weaponZoomIndices[this.activeWeapon] % zoomOpts.length];
     const activeAdsFov = activeZoom ? activeZoom.fov : spec.adsFov;
 
-    const targetFov = THREE.MathUtils.lerp(
-      this.slideTimer > 0 ? 75.5 : 74,
-      activeAdsFov,
-      this.adsBlend,
-    );
+    const targetFov =
+      THREE.MathUtils.lerp(
+        this.slideTimer > 0 ? 76.5 : 74 + this.sprintBlend * 2.2,
+        activeAdsFov,
+        this.adsBlend,
+      ) + this.gunFovPunch;
     if (Math.abs(this.camera.fov - targetFov) > 0.05) {
-      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 14, dt);
+      this.camera.fov = THREE.MathUtils.damp(this.camera.fov, targetFov, 15, dt);
       this.camera.updateProjectionMatrix();
     }
 
@@ -7511,21 +7753,49 @@ export class ShooterEngine {
       const adsY = this.activeWeapon === 'sniper' ? -0.078 : this.activeWeapon === 'pistol' ? -0.068 : -0.074;
       const adsZ = -0.32;
 
-      const reloadDrop = this.isReloading ? Math.sin(reloadProgress * Math.PI) * 0.12 : 0;
+      const notAds = 1 - this.adsBlend;
+      const tacSprint = this.sprintBlend * notAds * (this.isReloading ? 0.2 : 1.0);
+      const stride = this.walkBobPhase;
+      const walkSwingX = Math.sin(stride) * 0.011 * this.walkBobWeight * notAds;
+      const walkSwingY = Math.abs(Math.cos(stride)) * 0.01 * this.walkBobWeight * notAds;
+      const sprintBobX = Math.sin(stride * 1.05) * 0.018 * tacSprint;
+      const sprintBobY = -Math.abs(Math.cos(stride * 1.05)) * 0.02 * tacSprint;
+      const idleBreathY = Math.sin(this.elapsedTime * 1.9) * 0.0022 * notAds;
+
+      // Multi-stage Tactical Reload Pose (Cant -> Drop Mag -> Slap Fresh Mag -> Rack Bolt -> Settle)
+      let reloadShiftX = 0;
+      let reloadShiftY = 0;
+      let reloadShiftZ = 0;
+      let reloadRotX = 0;
+      let reloadRotY = 0;
+      let reloadRotZ = 0;
+      let boltPullTug = 0;
+      if (this.isReloading) {
+        const cantEnv = Math.sin(Math.min(1, reloadProgress / 0.84) * Math.PI);
+        const rackPhase = reloadProgress >= 0.78 ? Math.sin(((reloadProgress - 0.78) / 0.22) * Math.PI) : 0;
+        boltPullTug = rackPhase * 0.026;
+        reloadShiftX = -0.032 * cantEnv + rackPhase * 0.014;
+        reloadShiftY = -0.055 * cantEnv + this.reloadSlapBump;
+        reloadShiftZ = 0.032 * cantEnv + boltPullTug;
+        reloadRotX = 0.24 * cantEnv - rackPhase * 0.09;
+        reloadRotY = -0.26 * cantEnv;
+        reloadRotZ = 0.52 * cantEnv - rackPhase * 0.22;
+      }
+
       const grenadeDip = this.grenadeAnimTimer > 0 ? Math.sin(grenadePhase * Math.PI) * 0.35 : 0;
       const breachLift = this.breachTimer > 0 ? Math.sin((1 - this.breachTimer / this.breachTotal) * Math.PI) * 0.06 : 0;
-      const kickZ = this.recoilPitchOffset * 0.6 + this.recoilKickZ;
+      const kickZ = this.recoilPitchOffset * 0.55 + this.recoilKickZ;
+      const recoilLiftY = Math.min(0.025, this.recoilKickZ * 0.14);
 
-      // Steady weapon mount without walk/sprint X/Y shaking or sudden cross-chest twist
       this.weaponMount.position.set(
-        THREE.MathUtils.lerp(hipX, adsX, this.adsBlend),
-        THREE.MathUtils.lerp(hipY, adsY, this.adsBlend) - reloadDrop - grenadeDip + breachLift,
-        THREE.MathUtils.lerp(hipZ, adsZ, this.adsBlend) + kickZ,
+        THREE.MathUtils.lerp(hipX, adsX, this.adsBlend) - 0.058 * tacSprint + walkSwingX + sprintBobX + reloadShiftX,
+        THREE.MathUtils.lerp(hipY, adsY, this.adsBlend) - 0.044 * tacSprint - walkSwingY + sprintBobY + idleBreathY + reloadShiftY - grenadeDip + breachLift + recoilLiftY,
+        THREE.MathUtils.lerp(hipZ, adsZ, this.adsBlend) + 0.026 * tacSprint + kickZ + reloadShiftZ,
       );
       this.weaponMount.rotation.set(
-        this.recoilPitchOffset * 0.85 - (this.isReloading ? 0.38 : 0) + (this.breachTimer > 0 ? 0.22 : 0),
-        0,
-        this.sprintBlend * 0.04 * (1 - this.adsBlend) + (this.slideTimer > 0 ? 0.22 : 0) + (this.isReloading ? 0.32 : 0),
+        THREE.MathUtils.clamp(this.recoilPitchOffset * 1.15, -0.1, 0.24) - 0.14 * tacSprint + reloadRotX + (this.breachTimer > 0 ? 0.22 : 0),
+        0.54 * tacSprint + reloadRotY,
+        this.recoilRoll + 0.46 * tacSprint + Math.sin(stride) * 0.04 * tacSprint + (this.slideTimer > 0 ? 0.24 : 0) + reloadRotZ,
       );
 
       // First-person Articulated Operator Sleeves, Forearms & Hand-Held Frag Grenade Viewmodel
@@ -7536,7 +7806,6 @@ export class ShooterEngine {
           arms.grenadeGroup.visible = !this.grenadeReleased;
           arms.grenadePin.visible = grenadePhase < 0.24;
           if (grenadePhase < 0.22) {
-            // Pull pin phase: left hand pulls pin from grenade held in front
             const pp = grenadePhase / 0.22;
             arms.rightShoulder.position.set(0.14, -0.15, -0.05);
             arms.rightShoulder.rotation.set(0.55, 0.25, 0);
@@ -7545,7 +7814,6 @@ export class ShooterEngine {
             arms.leftShoulder.rotation.set(0.55, -0.35 - pp * 0.25, 0);
             arms.leftElbow.rotation.set(0.15, -0.2, 0);
           } else if (grenadePhase < 0.42) {
-            // Windup overhand throw
             const wp = (grenadePhase - 0.22) / 0.20;
             arms.rightShoulder.position.set(0.24, -0.12 + wp * 0.14, -0.02);
             arms.rightShoulder.rotation.set(THREE.MathUtils.lerp(0.55, 1.05, wp), -0.1, -0.2);
@@ -7553,7 +7821,6 @@ export class ShooterEngine {
             arms.leftShoulder.position.set(-0.26, -0.25, -0.06);
             arms.leftShoulder.rotation.set(0.25, 0.1, 0);
           } else {
-            // Overhand whip forward & release follow-through
             const tp = (grenadePhase - 0.42) / 0.58;
             arms.rightShoulder.position.set(0.22, THREE.MathUtils.lerp(0.02, -0.22, tp), -0.05);
             arms.rightShoulder.rotation.set(THREE.MathUtils.lerp(1.05, 0.2, tp), 0.15, 0);
@@ -7574,23 +7841,27 @@ export class ShooterEngine {
           arms.grenadeGroup.visible = false;
           const mOffX = this.weaponMount.position.x - 0.21;
           const mOffY = this.weaponMount.position.y + 0.21;
-          // Right support on weapon grip
-          arms.rightShoulder.position.set(0.25 + mOffX * 0.55, -0.21 + mOffY * 0.55, -0.04);
-          arms.rightShoulder.rotation.set(0.48 + this.recoilPitchOffset * 0.5, 0.12, 0);
+          const mOffZ = this.weaponMount.position.z + 0.42;
+          arms.rightShoulder.position.set(0.25 + mOffX * 0.58, -0.21 + mOffY * 0.58, -0.04 + mOffZ * 0.45);
+          arms.rightShoulder.rotation.set(0.48 + this.recoilPitchOffset * 0.7 + reloadRotX * 0.45, 0.12 + 0.24 * tacSprint, this.recoilRoll * 0.55);
           arms.rightElbow.rotation.set(-0.12, 0.18, 0);
 
-          // Left arm supports handguard or dips for fresh magazine during reload
-          if (this.isReloading && reloadProgress >= 0.18 && reloadProgress <= 0.64) {
-            const reach = Math.sin(((reloadProgress - 0.18) / 0.46) * Math.PI);
-            arms.leftShoulder.position.set(-0.22, -0.22 - reach * 0.16, -0.06);
-            arms.leftShoulder.rotation.set(0.32 - reach * 0.45, -0.28, 0);
-            arms.leftElbow.rotation.set(-0.08 - reach * 0.25, -0.3, 0);
+          if (this.isReloading && reloadProgress >= 0.12 && reloadProgress <= 0.78) {
+            const reach = Math.sin(((reloadProgress - 0.12) / 0.66) * Math.PI);
+            arms.leftShoulder.position.set(-0.22 + mOffX * 0.3, -0.22 - reach * 0.2, -0.06 + reach * 0.04);
+            arms.leftShoulder.rotation.set(0.34 - reach * 0.52, -0.28, 0);
+            arms.leftElbow.rotation.set(-0.08 - reach * 0.32, -0.32, 0);
+          } else if (this.isReloading && reloadProgress > 0.78) {
+            const rackReach = Math.sin(((reloadProgress - 0.78) / 0.22) * Math.PI);
+            arms.leftShoulder.position.set(-0.22 + mOffX * 0.45, -0.19 + mOffY * 0.45, -0.08 + rackReach * 0.07);
+            arms.leftShoulder.rotation.set(0.56 - rackReach * 0.14, -0.34, 0.12 * rackReach);
+            arms.leftElbow.rotation.set(-0.14 - rackReach * 0.24, -0.28, 0);
           } else {
-            arms.leftShoulder.position.set(-0.23 + mOffX * 0.45, -0.20 + mOffY * 0.45, -0.08);
+            arms.leftShoulder.position.set(-0.23 + mOffX * 0.52, -0.20 + mOffY * 0.52, -0.08 + mOffZ * 0.4);
             arms.leftShoulder.rotation.set(
-              0.52 + this.sprintBlend * 0.12 * (1 - this.adsBlend),
-              -0.38 - this.adsBlend * 0.12,
-              0,
+              0.52 + tacSprint * 0.22,
+              -0.38 - this.adsBlend * 0.12 + tacSprint * 0.34,
+              this.recoilRoll * 0.4 + tacSprint * 0.26,
             );
             arms.leftElbow.rotation.set(-0.1, -0.25, 0);
           }
@@ -8594,6 +8865,24 @@ export class ShooterEngine {
           aimTarget,
         };
       })(),
+      scienceDistrict: (() => {
+        const sdCtrl = this.arena?.scienceDistrict;
+        if (!sdCtrl) return undefined;
+        const st = sdCtrl.getState();
+        const near = detectNearestScienceInteraction(this.playerPos.x, this.playerPos.z);
+        return {
+          nearbyKind: near?.kind ?? null,
+          nearbyLabel: near?.label ?? null,
+          nearbyDomeId: near?.dome?.id ?? null,
+          activeBuilding: st.activeBuilding,
+          activeLabDept: st.activeLabDept,
+          activeMuseumHall: st.activeMuseumHall,
+          labRobotsActive: st.labRobotsActive,
+          labEnergyOverdrive: st.labEnergyOverdrive,
+          boostedDomes: { ...st.boostedDomes },
+          elevatorFloor: st.elevatorFloor.labWest,
+        };
+      })(),
     });
   }
 
@@ -8720,6 +9009,11 @@ export class ShooterEngine {
     if (this.lobbyShowcaseGroup.parent) {
       disposeObject3DResources(this.lobbyShowcaseGroup, sharedSet);
       this.scene.remove(this.lobbyShowcaseGroup);
+    }
+    if (this.lobbyBikeGroup) {
+      disposeObject3DResources(this.lobbyBikeGroup, sharedSet);
+      this.scene.remove(this.lobbyBikeGroup);
+      this.lobbyBikeGroup = null;
     }
     this.lobbyWeaponMeshes = {};
     Object.values(this.viewModels).forEach((vm) => {

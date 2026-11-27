@@ -8,6 +8,7 @@
  */
 
 import { getSmartCitySurfaceOffsetY, isInSmartCityZone } from './smartCitySystems';
+import { getScienceDistrictSurfaceOffsetY, isInScienceDistrictZone } from './scienceDistrictSystems';
 
 export const MANSION_FLOOR_HEIGHT = 5.8;
 export const MANSION_LEVEL_2_Y = 5.8;
@@ -161,19 +162,19 @@ export function isInsideMansionProperty(x: number, z: number, pad = 0): boolean 
   );
 }
 
-/** True when ground terrain bulge in the north & Smart City expansion must stay flat at y = 0. */
+/** True when ground terrain bulge in the north & Smart City / Science District expansion must stay flat at y = 0. */
 export function shouldFlattenNorthExpansion(x: number, z: number): boolean {
   if (x >= -142 && x <= 142 && z <= -205 && z >= -465) return true;
-  if (x >= -268 && x <= 540 && z <= -264 && z >= -790) return true;
+  if (x >= -268 && x <= 540 && z <= -264 && z >= -860) return true;
   return false;
 }
 
-/** Returns true if a horizon mountain peak / northern boulder would overlap the mansion or Smart City expansion. */
+/** Returns true if a horizon mountain peak / northern boulder would overlap the mansion, Smart City, or Science District. */
 export function overlapsMansionHorizonCorridor(x: number, z: number): boolean {
   if (z >= -110) return false;
   if (x >= -135 && x <= 135 && z >= -465) return true;
-  if (z <= -238 && z >= -850 && x >= -295 && x <= 575) return true;
-  return isInSmartCityZone(x, z);
+  if (z <= -238 && z >= -880 && x >= -295 && x <= 575) return true;
+  return isInSmartCityZone(x, z) || isInScienceDistrictZone(x, z, 10);
 }
 
 /**
@@ -250,6 +251,10 @@ export function getVehicleSurfaceOffsetY(x: number, z: number, refY?: number): n
   // Smart City avenues & walk-in facility aprons
   const smartCityY = getSmartCitySurfaceOffsetY(x, z);
   if (smartCityY > 0) return smartCityY;
+
+  // Futuristic Science District avenues, EV deck, plaza & skybridge/lab floors
+  const scienceY = getScienceDistrictSurfaceOffsetY(x, z, refY);
+  if (scienceY > 0) return scienceY;
 
   return 0;
 }

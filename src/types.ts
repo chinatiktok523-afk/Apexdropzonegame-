@@ -22,6 +22,25 @@ import {
   type SmartCityTelemetry,
 } from './game/smartCitySystems';
 import type { SmartCityTargetKind } from './game/smartCityDestruction';
+import {
+  SCIENCE_DISTRICT_POIS,
+  type ScienceDistrictSimulationState,
+  type ScienceDomeId,
+  type ScienceLabDepartmentId,
+} from './game/scienceDistrictSystems';
+
+export interface ScienceDistrictHudState {
+  nearbyKind: 'future_lab' | 'science_museum' | 'dome' | null;
+  nearbyLabel: string | null;
+  nearbyDomeId: ScienceDomeId | null;
+  activeBuilding: ScienceDistrictSimulationState['activeBuilding'];
+  activeLabDept: ScienceLabDepartmentId;
+  activeMuseumHall: number;
+  labRobotsActive: boolean;
+  labEnergyOverdrive: boolean;
+  boostedDomes: Record<ScienceDomeId, boolean>;
+  elevatorFloor: 1 | 2 | 3;
+}
 
 export interface SmartCityAimTargetInfo {
   label: string;
@@ -131,7 +150,10 @@ export type OperatorSkinId = 'wolf_black' | 'desert_recon' | 'ranger_olive' | 'n
 export type WeaponSkinId = 'standard' | 'crimson' | 'desert' | 'carbon' | 'arctic';
 export type ReticleColorId = 'amber' | 'emerald' | 'cyan' | 'crimson';
 export type LobbyPose = 'ready' | 'patrol' | 'guard';
-export type LobbyViewMode = 'overview' | 'soldier' | 'weapon' | 'map';
+export type LobbyViewMode = 'overview' | 'soldier' | 'weapon' | 'map' | 'bike';
+export type ShadowQualityOption = 'off' | 'low' | 'medium' | 'high';
+export type QualityTierOption = 'low' | 'medium' | 'high';
+export type LobbyLanguage = 'en' | 'es' | 'fr' | 'ar';
 export type CustomizableControlId =
   | 'move'
   | 'fire'
@@ -176,6 +198,13 @@ export interface HudSettings {
   mapSaturation: number; // 0.8 to 1.8
   sfxVolume: number; // 0 to 1
   muted: boolean;
+  shadowQuality?: ShadowQualityOption;
+  lightingQuality?: QualityTierOption;
+  reflectionQuality?: 'off' | 'low' | 'high';
+  textureQuality?: QualityTierOption;
+  mapQuality?: QualityTierOption;
+  drawDistance?: number; // 0.6 to 1.4
+  language?: LobbyLanguage;
   controlLayout: HudControlLayout;
 }
 
@@ -187,11 +216,18 @@ export const DEFAULT_HUD_SETTINGS: HudSettings = {
   showRadar: true,
   showTouchControls: true,
   autoSprint: true,
-  graphicsQuality: 'low',
-  bloomEnabled: false,
+  graphicsQuality: 'high',
+  bloomEnabled: true,
   mapSaturation: 1.38,
   sfxVolume: 0.85,
   muted: false,
+  shadowQuality: 'high',
+  lightingQuality: 'high',
+  reflectionQuality: 'high',
+  textureQuality: 'high',
+  mapQuality: 'high',
+  drawDistance: 1.0,
+  language: 'en',
   controlLayout: {
     move: { ...DEFAULT_HUD_CONTROL_LAYOUT.move },
     fire: { ...DEFAULT_HUD_CONTROL_LAYOUT.fire },
@@ -498,6 +534,16 @@ export const SIMULATOR_POIS: DronePoi[] = [
     kind: 'landmark',
   },
   ...SMART_CITY_POIS.map((p) => ({
+    id: p.id,
+    name: p.name,
+    shortName: p.shortName,
+    subtitle: p.subtitle,
+    x: p.x,
+    z: p.z,
+    viewYaw: p.viewYaw,
+    kind: p.kind,
+  })),
+  ...SCIENCE_DISTRICT_POIS.map((p) => ({
     id: p.id,
     name: p.name,
     shortName: p.shortName,
@@ -987,4 +1033,5 @@ export interface HudState {
     droneStages?: number[];
     aimTarget?: SmartCityAimTargetInfo | null;
   };
+  scienceDistrict?: ScienceDistrictHudState;
 }

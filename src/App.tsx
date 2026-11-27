@@ -8,7 +8,9 @@ import { GameHUD } from './components/GameHUD';
 import { HudLayoutEditor } from './components/HudLayoutEditor';
 import { LoadingScreen } from './components/LoadingScreen';
 import { SimulatorLobbyScreen } from './components/SimulatorLobbyScreen';
+import { SimulatorPauseModal } from './components/SimulatorPauseModal';
 import { SmartCityDashboard } from './components/SmartCityDashboard';
+import { ScienceDistrictModal } from './components/ScienceDistrictModal';
 import { soundEngine } from './game/audio';
 import { ShooterEngine } from './game/engine';
 import { auth } from './lib/firebase';
@@ -128,6 +130,48 @@ function loadHudSettings(): HudSettings {
           : DEFAULT_HUD_SETTINGS.sfxVolume,
       muted:
         typeof parsed.muted === 'boolean' ? parsed.muted : DEFAULT_HUD_SETTINGS.muted,
+      shadowQuality:
+        parsed.shadowQuality === 'off' ||
+        parsed.shadowQuality === 'low' ||
+        parsed.shadowQuality === 'medium' ||
+        parsed.shadowQuality === 'high'
+          ? parsed.shadowQuality
+          : undefined,
+      lightingQuality:
+        parsed.lightingQuality === 'low' ||
+        parsed.lightingQuality === 'medium' ||
+        parsed.lightingQuality === 'high'
+          ? parsed.lightingQuality
+          : undefined,
+      reflectionQuality:
+        parsed.reflectionQuality === 'off' ||
+        parsed.reflectionQuality === 'low' ||
+        parsed.reflectionQuality === 'high'
+          ? parsed.reflectionQuality
+          : undefined,
+      textureQuality:
+        parsed.textureQuality === 'low' ||
+        parsed.textureQuality === 'medium' ||
+        parsed.textureQuality === 'high'
+          ? parsed.textureQuality
+          : undefined,
+      mapQuality:
+        parsed.mapQuality === 'low' ||
+        parsed.mapQuality === 'medium' ||
+        parsed.mapQuality === 'high'
+          ? parsed.mapQuality
+          : undefined,
+      drawDistance:
+        typeof parsed.drawDistance === 'number'
+          ? Math.min(1.4, Math.max(0.6, parsed.drawDistance))
+          : DEFAULT_HUD_SETTINGS.drawDistance,
+      language:
+        parsed.language === 'en' ||
+        parsed.language === 'es' ||
+        parsed.language === 'fr' ||
+        parsed.language === 'ar'
+          ? parsed.language
+          : DEFAULT_HUD_SETTINGS.language,
       controlLayout: mergeControlLayout(parsed.controlLayout),
     };
   } catch {
@@ -290,6 +334,7 @@ export default function App() {
   const [loadoutConfig, setLoadoutConfig] = useState<LoadoutConfig>(() => loadLoadoutConfig());
   const [showHudEditor, setShowHudEditor] = useState(false);
   const [showSmartCityDashboard, setShowSmartCityDashboard] = useState(false);
+  const [showScienceDistrictModal, setShowScienceDistrictModal] = useState(false);
   const [hud, setHud] = useState<HudState>(INITIAL_HUD);
   const [contextLost, setContextLost] = useState(false);
   const [loadProgress, setLoadProgress] = useState<LoadProgress>({
@@ -340,6 +385,8 @@ export default function App() {
   showHudEditorRef.current = showHudEditor;
   const showSmartCityDashboardRef = useRef(showSmartCityDashboard);
   showSmartCityDashboardRef.current = showSmartCityDashboard;
+  const showScienceDistrictRef = useRef(showScienceDistrictModal);
+  showScienceDistrictRef.current = showScienceDistrictModal;
   const lastSimSaveAtRef = useRef(0);
   const lastCloudSaveAtRef = useRef(0);
   const firebaseUserRef = useRef<User | null>(null);
@@ -568,6 +615,9 @@ export default function App() {
       },
       onOpenSmartCityDashboard: () => {
         setShowSmartCityDashboard(true);
+      },
+      onOpenScienceDistrict: () => {
+        setShowScienceDistrictModal(true);
       },
     });
 
@@ -829,6 +879,7 @@ export default function App() {
 
   const handlePause = useCallback(() => {
     setShowSmartCityDashboard(false);
+    setShowScienceDistrictModal(false);
     persistSimulatorSnapshot(true);
     engineRef.current?.pauseMatch();
     setPhase('paused');
@@ -841,6 +892,7 @@ export default function App() {
 
   const handleReturnToMenu = useCallback(() => {
     setShowSmartCityDashboard(false);
+    setShowScienceDistrictModal(false);
     persistSimulatorSnapshot(true);
     engineRef.current?.returnToMenu();
     setPhase('menu');
@@ -852,6 +904,10 @@ export default function App() {
     if (!Capacitor.isNativePlatform()) return;
     let removeListener: (() => Promise<void>) | null = null;
     void CapApp.addListener('backButton', () => {
+      if (showScienceDistrictRef.current) {
+        setShowScienceDistrictModal(false);
+        return;
+      }
       if (showSmartCityDashboardRef.current) {
         setShowSmartCityDashboard(false);
         return;
@@ -970,6 +1026,13 @@ export default function App() {
               }
               setShowSmartCityDashboard((v) => !v);
             }}
+            showScienceDistrictModal={showScienceDistrictModal}
+            onOpenScienceDistrictModal={() => {
+              if (typeof document !== 'undefined' && document.pointerLockElement) {
+                document.exitPointerLock?.();
+              }
+              setShowScienceDistrictModal((v) => !v);
+            }}
           />
         )}
 
@@ -979,6 +1042,14 @@ export default function App() {
             onCommand={(cmd) => engineRef.current?.sendSmartCityCommand(cmd)}
             onTeleportPoi={(x, z, label, yaw) => engineRef.current?.teleportToPoi(x, z, label, yaw)}
             onClose={() => setShowSmartCityDashboard(false)}
+          />
+        )}
+
+        {phase === 'playing' && showScienceDistrictModal && hud.scienceDistrict && (
+          <ScienceDistrictModal
+            scienceDistrict={hud.scienceDistrict}
+            onCommand={(cmd) => engineRef.current?.sendScienceDistrictCommand(cmd)}
+            onClose={() => setShowScienceDistrictModal(false)}
           />
         )}
       </div>
@@ -1032,17 +1103,20 @@ export default function App() {
           onSelectSimTimePhase={(tp) => {
             setSimTimePhase(tp);
             simTimePhaseRef.current = tp;
+            engineRef.current?.setSimulatorEnvironment({ timePhase: tp });
             persistSimulatorSnapshot(true, { timePhase: tp });
           }}
           onSelectSimWeather={(w) => {
             setSimWeather(w);
             simWeatherRef.current = w;
+            engineRef.current?.setSimulatorEnvironment({ weather: w });
             persistSimulatorSnapshot(true, { weather: w });
           }}
           onToggleSimAutoCycle={() =>
             setSimAutoCycle((v) => {
               const next = !v;
               simAutoCycleRef.current = next;
+              engineRef.current?.setSimulatorEnvironment({ autoCycle: next });
               persistSimulatorSnapshot(true, { autoCycle: next });
               return next;
             })
@@ -1050,6 +1124,7 @@ export default function App() {
           onSelectSimBikeStyle={(b) => {
             setSimBikeStyle(b);
             simBikeStyleRef.current = b;
+            engineRef.current?.setSimulatorEnvironment({ bikeStyle: b });
             persistSimulatorSnapshot(true, { bikeStyle: b });
           }}
           onUpdateHudSettings={setHudSettings}
@@ -1057,6 +1132,20 @@ export default function App() {
           onToggleFullscreen={handleToggleFullscreenLandscape}
           onOpenHudEditor={() => setShowHudEditor(true)}
           onDeploySimulator={handleEnterSimulator}
+          onChangeLobbyViewMode={(viewMode) => {
+            engineRef.current?.setLobbyConfig({ viewMode });
+          }}
+          onPreviewWorldCoords={(focusX, focusZ) => {
+            engineRef.current?.setLobbyConfig({ viewMode: 'map' });
+            engineRef.current?.setDroneControl({ focusX, focusZ, zoom: 0.92 });
+          }}
+          onLobbyCameraDrag={(dx, dy) => {
+            engineRef.current?.addLobbyInspectDelta(dx, dy);
+            engineRef.current?.setDroneControl({ orbitDelta: dx * 0.008, panZ: dy * 0.35 });
+          }}
+          onLobbyCameraZoom={(zoomDelta) => {
+            engineRef.current?.setDroneControl({ zoomDelta });
+          }}
           signedInUserName={firebaseUser?.displayName || firebaseUser?.email || null}
           authBusy={authBusy}
           onSignInGoogle={handleSignInGoogle}
@@ -1073,44 +1162,16 @@ export default function App() {
         />
       )}
 
-      {/* Pause Overlay */}
+      {/* Pause Overlay (3D Liquid Glass Modal with Reset Confirmation) */}
       {phase === 'paused' && (
-        <div className="fixed inset-0 z-30 bg-zinc-950/85 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm bg-[#0d1117] border border-white/15 rounded-lg p-6 space-y-4">
-            <div>
-              <p className="text-xs text-zinc-400 mb-1">
-                World Simulator · {MAP_PRESETS[simMapId].name}
-              </p>
-              <h2 className="font-display text-3xl font-bold text-white">
-                Simulator Paused
-              </h2>
-            </div>
-
-            <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={handleResume}
-                className="w-full py-3 rounded-md bg-amber-500 hover:bg-amber-400 text-zinc-950 font-display text-lg font-bold transition-colors"
-              >
-                Resume Exploration
-              </button>
-              <button
-                type="button"
-                onClick={handleDeploy}
-                className="w-full py-2.5 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-white/15 text-white text-sm font-semibold transition-colors"
-              >
-                Reset World Position
-              </button>
-              <button
-                type="button"
-                onClick={handleReturnToMenu}
-                className="w-full py-2.5 rounded-md bg-zinc-950 hover:bg-zinc-900 border border-white/10 text-zinc-300 text-sm transition-colors"
-              >
-                Exit to Simulator Lobby
-              </button>
-            </div>
-          </div>
-        </div>
+        <SimulatorPauseModal
+          simMapId={simMapId}
+          graphicsQuality={hudSettings.graphicsQuality}
+          language={hudSettings.language}
+          onResume={handleResume}
+          onResetPosition={handleDeploy}
+          onExitToLobby={handleReturnToMenu}
+        />
       )}
 
       {/* Full-Screen Android Startup Loading Overlay */}

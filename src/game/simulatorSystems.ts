@@ -4,6 +4,7 @@ import {
   isInSmartCityZone,
   type SmartCityDistrictName,
 } from './smartCitySystems';
+import { isInScienceDistrictZone } from './scienceDistrictSystems';
 
 export type NpcCategory =
   | 'everyday_citizen'
@@ -477,11 +478,15 @@ export type MegaWorldDistrict =
   | 'Helios Eco-Biodomes & Monorail'
   | 'Helios Marina & Lighthouse'
   | 'Sun Pyramid & Canyon Oasis'
+  | 'Future Lab & Science Museum'
   | SmartCityDistrictName;
 
 export function getMegaWorldDistrictAt(x: number, z: number): MegaWorldDistrict {
   if (isInSmartCityZone(x, z)) {
     return getSmartCityDistrictAt(x, z);
+  }
+  if (isInScienceDistrictZone(x, z)) {
+    return 'Future Lab & Science Museum';
   }
   if (x <= -265) {
     if (x > -444) return 'Western Ocean Sky Bridge';

@@ -105,6 +105,8 @@ interface GameHUDProps {
   onOpenHudEditor?: () => void;
   showSmartCityDashboard?: boolean;
   onOpenSmartCityDashboard?: () => void;
+  showScienceDistrictModal?: boolean;
+  onOpenScienceDistrictModal?: () => void;
 }
 
 const COMPASS_MARKS = [
@@ -174,6 +176,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onOpenHudEditor,
   showSmartCityDashboard,
   onOpenSmartCityDashboard,
+  showScienceDistrictModal,
+  onOpenScienceDistrictModal,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showSimEnvDrawer, setShowSimEnvDrawer] = useState(false);
@@ -919,6 +923,23 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             >
               <Cpu className="w-2.5 h-2.5" />
               <span>Smart City</span>
+            </button>
+            <button
+              type="button"
+              data-testid="science-district-toggle"
+              onClick={() => {
+                setShowSimEnvDrawer(false);
+                setShowSimShopDrawer(false);
+                onOpenScienceDistrictModal?.();
+              }}
+              className={`px-2 py-1 rounded border text-[9px] font-mono font-bold flex items-center gap-1 transition-colors ${
+                showScienceDistrictModal
+                  ? 'bg-sky-400 text-zinc-950 border-sky-200'
+                  : 'bg-zinc-900 hover:bg-zinc-800 border-sky-400/50 text-sky-200'
+              }`}
+            >
+              <Cpu className="w-2.5 h-2.5" />
+              <span>Science Hub</span>
             </button>
           </div>
           <div className="bg-zinc-950/92 border border-emerald-400/35 rounded px-2 py-0.5 flex items-center gap-1.5 text-[9.5px] font-mono text-zinc-100 tabular-nums shadow">
@@ -1913,6 +1934,22 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <span>Open Shop</span>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Nearby Science District Glass Approach Interface Trigger */}
+      {!hud.seatedChair && !hud.nearbyInteractable && hud.scienceDistrict?.nearbyKind && !showScienceDistrictModal && !hud.victoryCelebration && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="science-district-approach-btn"
+            onClick={() => onOpenScienceDistrictModal?.()}
+            className="min-h-[40px] px-4 py-1.5 rounded-lg border border-cyan-300/60 text-white font-medium text-xs shadow-xl transition-colors flex items-center gap-2 whitespace-nowrap"
+            style={{ backgroundColor: 'rgba(8, 22, 46, 0.90)' }}
+          >
+            <Cpu className="w-3.5 h-3.5 text-cyan-300" />
+            <span>{hud.scienceDistrict.nearbyLabel}</span>
+          </button>
         </div>
       )}
 
